@@ -9859,6 +9859,7 @@ dependencies = [
  "editor",
  "fs",
  "gpui",
+ "handlebars 4.5.0",
  "language",
  "linkify",
  "log",
