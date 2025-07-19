@@ -316,7 +316,43 @@ impl Image {
         source_range: Range<usize>,
         file_location_directory: Option<PathBuf>,
     ) -> Option<Self> {
-        let link = Link::identify(file_location_directory, text)?;
+        // Don't create images for empty URLs
+        if text.is_empty() {
+            return None;
+        }
+
+        // For images, be more permissive - create the link even if file doesn't exist
+        let link = if let Some(link) = Link::identify(file_location_directory.clone(), text.clone())
+        {
+            link
+        } else {
+            // If Link::identify fails (file doesn't exist), create a path link anyway for images
+            if text.starts_with("http") {
+                Link::Web { url: text }
+            } else {
+                let path = PathBuf::from(&text);
+                if path.is_absolute() {
+                    Link::Path {
+                        display_path: path.clone(),
+                        path,
+                    }
+                } else if let Some(file_location_directory) = file_location_directory {
+                    let display_path = path;
+                    let full_path = file_location_directory.join(&text);
+                    Link::Path {
+                        display_path,
+                        path: full_path,
+                    }
+                } else {
+                    // No file location directory, use relative path as-is
+                    Link::Path {
+                        display_path: path.clone(),
+                        path,
+                    }
+                }
+            }
+        };
+
         Some(Self {
             source_range,
             link,

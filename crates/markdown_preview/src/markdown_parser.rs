@@ -118,8 +118,21 @@ fn preprocess_wikilinks(input: &str) -> String {
         result.push_str(&rest[..start]);
         if let Some(end) = rest[start + 2..].find("]]") {
             let inner = &rest[start + 2..start + 2 + end];
-            // Create autolink format which pulldown-cmark always recognizes
-            result.push_str(&format!("[{}](<{}.md>)", inner, inner));
+
+            // Check if this is an image wiki link (preceded by !)
+            let is_image = start > 0 && rest.chars().nth(start - 1) == Some('!');
+
+            if is_image {
+                // Remove the ! that was already added to result
+                result.pop();
+                // Convert ![[image.jpg]] to ![image](image.jpg)
+                result.push_str(&format!("![{}]({})", inner, inner));
+            } else {
+                // Regular wiki link - convert [[Note Name]] to [Note Name](Note_Name.md)
+                let link_target = inner.replace(' ', "_");
+                result.push_str(&format!("[{}]({})", inner, format!("{}.md", link_target)));
+            }
+
             rest = &rest[start + 2 + end + 2..];
         } else {
             result.push_str(&rest[start..]);
@@ -2092,6 +2105,91 @@ fn main() {
             "This is a [Test Note](Test_Note.md) and another [My Other Note](My_Other_Note.md).";
         let result = preprocess_wikilinks(input);
         assert_eq!(result, expected);
+    }
+
+    #[gpui::test]
+    async fn test_wiki_image_preprocessing() {
+        // Test that wiki image preprocessing works correctly
+        let input = "Here is an image: ![[lascaux_cave_paintings.jpg]] and a link [[Test Note]].";
+        let expected = "Here is an image: ![lascaux_cave_paintings.jpg](lascaux_cave_paintings.jpg) and a link [Test Note](Test_Note.md).";
+        let result = preprocess_wikilinks(input);
+        assert_eq!(result, expected);
+    }
+
+    #[gpui::test]
+    async fn test_wiki_image_parsing() {
+        // Test that wiki images are parsed correctly as Image elements
+        let parsed = parse("Here is an image: ![[lascaux_cave_paintings.jpg]]").await;
+        assert_eq!(parsed.children.len(), 1);
+
+        if let ParsedMarkdownElement::Paragraph(chunks) = &parsed.children[0] {
+            assert_eq!(chunks.len(), 2);
+
+            // First chunk should be text
+            if let MarkdownParagraphChunk::Text(text) = &chunks[0] {
+                assert_eq!(text.contents, "Here is an image: ");
+            } else {
+                panic!("Expected text chunk, got {:?}", chunks[0]);
+            }
+
+            // Second chunk should be an image
+            if let MarkdownParagraphChunk::Image(image) = &chunks[1] {
+                match &image.link {
+                    Link::Path { display_path, .. } => {
+                        assert_eq!(display_path.to_string_lossy(), "lascaux_cave_paintings.jpg");
+                    }
+                    _ => panic!("Expected path link for image"),
+                }
+                assert_eq!(image.alt_text, Some("lascaux_cave_paintings.jpg".into()));
+            } else {
+                panic!("Expected image chunk, got {:?}", chunks[1]);
+            }
+        } else {
+            panic!("Expected paragraph, got {:?}", parsed.children[0]);
+        }
+    }
+
+    #[gpui::test]
+    async fn test_wiki_image_integration() {
+        // Test that wiki images work correctly in a more complex scenario
+        let input = "# Test Document\n\nHere are some images:\n\n![[image1.jpg]] and ![[path/to/image2.png]]\n\nAnd some links: [[Document]] and [[My Notes]]";
+        let parsed = parse(input).await;
+
+        // Should have heading + 3 paragraphs (double newlines create separate paragraphs)
+        assert_eq!(parsed.children.len(), 4);
+
+        // Check the third paragraph has images
+        if let ParsedMarkdownElement::Paragraph(chunks) = &parsed.children[2] {
+            assert_eq!(chunks.len(), 3); // image1 + " and " + image2
+
+            // Verify first image
+            if let MarkdownParagraphChunk::Image(image) = &chunks[0] {
+                match &image.link {
+                    Link::Path { display_path, .. } => {
+                        assert_eq!(display_path.to_string_lossy(), "image1.jpg");
+                    }
+                    _ => panic!("Expected path link for first image"),
+                }
+                assert_eq!(image.alt_text, Some("image1.jpg".into()));
+            } else {
+                panic!("Expected first image chunk");
+            }
+
+            // Verify second image
+            if let MarkdownParagraphChunk::Image(image) = &chunks[2] {
+                match &image.link {
+                    Link::Path { display_path, .. } => {
+                        assert_eq!(display_path.to_string_lossy(), "path/to/image2.png");
+                    }
+                    _ => panic!("Expected path link for second image"),
+                }
+                assert_eq!(image.alt_text, Some("path/to/image2.png".into()));
+            } else {
+                panic!("Expected second image chunk");
+            }
+        } else {
+            panic!("Expected paragraph with images");
+        }
     }
 
     #[gpui::test]
