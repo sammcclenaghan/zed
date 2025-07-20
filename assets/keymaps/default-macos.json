@@ -1080,7 +1080,8 @@
     "use_key_equivalents": true,
     "bindings": {
       "cmd-shift-a": "file_finder::ToggleSplitMenu",
-      "cmd-shift-i": "file_finder::ToggleFilterMenu"
+      "cmd-shift-i": "file_finder::ToggleFilterMenu",
+      "cmd-shift-e": "file_finder::TogglePreview"
     }
   },
   {
