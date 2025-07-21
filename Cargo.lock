@@ -1953,6 +1953,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
 
 [[package]]
+name = "backlinks_panel"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "collections",
+ "editor",
+ "fs",
+ "futures 0.3.31",
+ "gpui",
+ "language",
+ "log",
+ "markdown_preview",
+ "panel",
+ "project",
+ "regex",
+ "serde",
+ "settings",
+ "theme",
+ "ui",
+ "util",
+ "workspace",
+]
+
+[[package]]
 name = "backtrace"
 version = "0.3.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -20936,6 +20960,7 @@ dependencies = [
  "audio",
  "auto_update",
  "auto_update_ui",
+ "backlinks_panel",
  "backtrace",
  "breadcrumbs",
  "call",

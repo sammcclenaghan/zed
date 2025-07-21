@@ -13,6 +13,7 @@ use agent_ui::{AgentDiffToolbar, AgentPanelDelegate};
 use anyhow::Context as _;
 pub use app_menus::*;
 use assets::Assets;
+use backlinks_panel::BacklinksPanel;
 use breadcrumbs::Breadcrumbs;
 use client::zed_urls;
 use collections::VecDeque;
@@ -495,6 +496,7 @@ fn initialize_panels(
         let outline_panel = OutlinePanel::load(workspace_handle.clone(), cx.clone());
         let terminal_panel = TerminalPanel::load(workspace_handle.clone(), cx.clone());
         let git_panel = GitPanel::load(workspace_handle.clone(), cx.clone());
+        let backlinks_panel = BacklinksPanel::load(workspace_handle.clone(), cx.clone());
         let channels_panel =
             collab_ui::collab_panel::CollabPanel::load(workspace_handle.clone(), cx.clone());
         let chat_panel =
@@ -510,6 +512,7 @@ fn initialize_panels(
             outline_panel,
             terminal_panel,
             git_panel,
+            backlinks_panel,
             channels_panel,
             chat_panel,
             notification_panel,
@@ -519,6 +522,7 @@ fn initialize_panels(
             outline_panel,
             git_panel,
             terminal_panel,
+            backlinks_panel,
             channels_panel,
             chat_panel,
             notification_panel,
@@ -530,6 +534,7 @@ fn initialize_panels(
             workspace.add_panel(outline_panel, window, cx);
             workspace.add_panel(terminal_panel, window, cx);
             workspace.add_panel(git_panel, window, cx);
+            workspace.add_panel(backlinks_panel, window, cx);
             workspace.add_panel(channels_panel, window, cx);
             workspace.add_panel(chat_panel, window, cx);
             workspace.add_panel(notification_panel, window, cx);

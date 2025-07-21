@@ -1,0 +1,29 @@
+[package]
+name = "backlinks_panel"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow.workspace = true
+collections.workspace = true
+editor.workspace = true
+fs.workspace = true
+gpui.workspace = true
+language.workspace = true
+panel.workspace = true
+project.workspace = true
+settings.workspace = true
+theme.workspace = true
+ui.workspace = true
+util.workspace = true
+workspace.workspace = true
+regex.workspace = true
+serde.workspace = true
+futures.workspace = true
+log.workspace = true
+
+markdown_preview.workspace = true 
