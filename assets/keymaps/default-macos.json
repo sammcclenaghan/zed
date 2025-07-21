@@ -107,8 +107,8 @@
       "end": ["editor::MoveToEndOfLine", { "stop_at_soft_wraps": true }],
       "cmd-up": "editor::MoveToBeginning",
       "cmd-down": "editor::MoveToEnd",
-      "cmd-home": "editor::MoveToBeginning", // Typed via `cmd-fn-left`
-      "cmd-end": "editor::MoveToEnd", // Typed via `cmd-fn-right`
+      "cmd-home": "editor::MoveToBeginning",
+      "cmd-end": "editor::MoveToEnd",
       "shift-up": "editor::SelectUp",
       "ctrl-shift-p": "editor::SelectUp",
       "shift-down": "editor::SelectDown",
@@ -117,8 +117,8 @@
       "ctrl-shift-b": "editor::SelectLeft",
       "shift-right": "editor::SelectRight",
       "ctrl-shift-f": "editor::SelectRight",
-      "alt-shift-left": "editor::SelectToPreviousWordStart", // cursorWordLeftSelect
-      "alt-shift-right": "editor::SelectToNextWordEnd", // cursorWordRightSelect
+      "alt-shift-left": "editor::SelectToPreviousWordStart",
+      "alt-shift-right": "editor::SelectToNextWordEnd",
       "ctrl-shift-up": "editor::SelectToStartOfParagraph",
       "ctrl-shift-down": "editor::SelectToEndOfParagraph",
       "cmd-shift-up": "editor::SelectToBeginning",
@@ -691,7 +691,15 @@
       "cmd-k shift-down": "workspace::SwapPaneDown",
       "cmd-shift-x": "zed::Extensions",
       "f5": "debugger::Rerun",
-      "cmd-w": "workspace::CloseActiveDock"
+      "cmd-w": "workspace::CloseActiveDock",
+      "space a": "harpoon::Mark",
+      "ctrl-e": "harpoon::ShowPicker",
+      "ctrl-h": "harpoon::Jump1",
+      "ctrl-t": "harpoon::Jump2",
+      "ctrl-n": "harpoon::Jump3",
+      "ctrl-s": "harpoon::Jump4",
+      "ctrl-shift-p": "harpoon::Jump5",
+      "ctrl-shift-n": "harpoon::Jump6"
     }
   },
   {

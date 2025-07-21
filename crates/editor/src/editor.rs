@@ -18262,6 +18262,10 @@ impl Editor {
             .unwrap_or(EditorSettings::get_global(cx).relative_line_numbers)
     }
 
+    pub fn should_use_hybrid_line_numbers(&self, cx: &mut App) -> bool {
+        EditorSettings::get_global(cx).hybrid_line_numbers
+    }
+
     pub fn toggle_relative_line_numbers(
         &mut self,
         _: &ToggleRelativeLineNumbers,
@@ -18270,6 +18274,23 @@ impl Editor {
     ) {
         let is_relative = self.should_use_relative_line_numbers(cx);
         self.set_relative_line_number(Some(!is_relative), cx)
+    }
+
+    pub fn toggle_hybrid_line_numbers(
+        &mut self,
+        _: &ToggleHybridLineNumbers,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let current_hybrid = self.should_use_hybrid_line_numbers(cx);
+        // Update the global setting
+        EditorSettings::override_global(
+            EditorSettings {
+                hybrid_line_numbers: !current_hybrid,
+                ..EditorSettings::get_global(cx).clone()
+            },
+            cx,
+        );
     }
 
     pub fn set_relative_line_number(&mut self, is_relative: Option<bool>, cx: &mut Context<Self>) {

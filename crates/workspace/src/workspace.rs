@@ -1,4 +1,5 @@
 pub mod dock;
+pub mod harpoon;
 pub mod history_manager;
 pub mod item;
 mod modal_layer;
@@ -515,6 +516,7 @@ pub fn init_settings(cx: &mut App) {
     ItemSettings::register(cx);
     PreviewTabsSettings::register(cx);
     TabBarSettings::register(cx);
+    harpoon::init(cx);
 }
 
 fn prompt_and_open_paths(app_state: Arc<AppState>, options: PathPromptOptions, cx: &mut App) {
@@ -5712,6 +5714,18 @@ impl Workspace {
                     );
                 },
             ))
+            .on_action(cx.listener(Self::harpoon_mark))
+            .on_action(cx.listener(Self::harpoon_jump_1))
+            .on_action(cx.listener(Self::harpoon_jump_2))
+            .on_action(cx.listener(Self::harpoon_jump_3))
+            .on_action(cx.listener(Self::harpoon_jump_4))
+            .on_action(cx.listener(Self::harpoon_jump_5))
+            .on_action(cx.listener(Self::harpoon_jump_6))
+            .on_action(cx.listener(Self::harpoon_jump_7))
+            .on_action(cx.listener(Self::harpoon_jump_8))
+            .on_action(cx.listener(Self::harpoon_jump_9))
+            .on_action(cx.listener(Self::harpoon_show_picker))
+            .on_action(cx.listener(Self::harpoon_clear))
             .on_action(cx.listener(Workspace::toggle_centered_layout))
             .on_action(cx.listener(Workspace::cancel))
     }
@@ -5798,6 +5812,92 @@ impl Workspace {
     pub fn toggle_status_toast<V: ToastView>(&mut self, entity: Entity<V>, cx: &mut App) {
         self.toast_layer
             .update(cx, |toast_layer, cx| toast_layer.toggle_toast(cx, entity))
+    }
+
+    pub fn harpoon_mark(&mut self, _: &harpoon::Mark, _: &mut Window, cx: &mut Context<Self>) {
+        if let Some(active_item) = self.active_item(cx) {
+            if let Some(project_path) = active_item.project_path(cx) {
+                let harpoon_store = harpoon::get_or_create_harpoon_store(&self.project, cx);
+                if let Ok(slot) = harpoon_store.update(cx, |store, cx| {
+                    store.mark_current_file(project_path, cx)
+                }) {
+                    // TODO: Show a notification about which slot was used
+                    log::info!("Marked file in harpoon slot {}", slot + 1);
+                }
+            }
+        }
+    }
+
+    pub fn harpoon_jump_1(&mut self, _: &harpoon::Jump1, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(0, window, cx);
+    }
+
+    pub fn harpoon_jump_2(&mut self, _: &harpoon::Jump2, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(1, window, cx);
+    }
+
+    pub fn harpoon_jump_3(&mut self, _: &harpoon::Jump3, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(2, window, cx);
+    }
+
+    pub fn harpoon_jump_4(&mut self, _: &harpoon::Jump4, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(3, window, cx);
+    }
+
+    pub fn harpoon_jump_5(&mut self, _: &harpoon::Jump5, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(4, window, cx);
+    }
+
+    pub fn harpoon_jump_6(&mut self, _: &harpoon::Jump6, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(5, window, cx);
+    }
+
+    pub fn harpoon_jump_7(&mut self, _: &harpoon::Jump7, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(6, window, cx);
+    }
+
+    pub fn harpoon_jump_8(&mut self, _: &harpoon::Jump8, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(7, window, cx);
+    }
+
+    pub fn harpoon_jump_9(&mut self, _: &harpoon::Jump9, window: &mut Window, cx: &mut Context<Self>) {
+        self.harpoon_jump_to_slot(8, window, cx);
+    }
+
+    pub fn harpoon_show_picker(&mut self, _: &harpoon::ShowPicker, window: &mut Window, cx: &mut Context<Self>) {
+        let project = self.project().clone();
+        let workspace_entity = cx.entity().downgrade();
+        self.toggle_modal(window, cx, |window, cx| {
+            harpoon::HarpoonPicker::new(project, workspace_entity, window, cx)
+        });
+    }
+
+    pub fn harpoon_clear(&mut self, _: &harpoon::Clear, _: &mut Window, cx: &mut Context<Self>) {
+        let harpoon_store = harpoon::get_or_create_harpoon_store(&self.project, cx);
+        harpoon_store.update(cx, |store, cx| {
+            store.clear_all(cx);
+        });
+        log::info!("Cleared all harpoon marks");
+    }
+
+    fn harpoon_jump_to_slot(&mut self, slot: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let harpoon_store = harpoon::get_or_create_harpoon_store(&self.project, cx);
+        let mark = harpoon_store.read(cx).get_mark(slot).cloned();
+        
+        if let Some(mark) = mark {
+            let task = self.open_path_preview(
+                mark.project_path,
+                None,
+                true,
+                false,
+                true,
+                window,
+                cx,
+            );
+            task.detach_and_log_err(cx);
+        } else {
+            log::info!("No file marked in harpoon slot {}", slot + 1);
+        }
     }
 
     pub fn toggle_centered_layout(

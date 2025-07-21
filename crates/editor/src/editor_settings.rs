@@ -31,6 +31,7 @@ pub struct EditorSettings {
     pub scroll_sensitivity: f32,
     pub fast_scroll_sensitivity: f32,
     pub relative_line_numbers: bool,
+    pub hybrid_line_numbers: bool,
     pub seed_search_query_from_cursor: SeedQuerySetting,
     pub use_smartcase_search: bool,
     pub multi_cursor_modifier: MultiCursorModifier,
@@ -479,6 +480,10 @@ pub struct EditorSettingsContent {
     ///
     /// Default: false
     pub relative_line_numbers: Option<bool>,
+    /// Whether to show both relative and absolute line numbers (e.g., "+5 (42)").
+    ///
+    /// Default: false
+    pub hybrid_line_numbers: Option<bool>,
     /// When to populate a new search's query based on the text under the cursor.
     ///
     /// Default: always

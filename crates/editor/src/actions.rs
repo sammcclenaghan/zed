@@ -708,6 +708,8 @@ actions!(
         SetMark,
         /// Toggles relative line numbers display.
         ToggleRelativeLineNumbers,
+        /// Toggles hybrid line numbers display (shows both relative and absolute).
+        ToggleHybridLineNumbers,
         /// Toggles diff display for selected hunks.
         #[action(deprecated_aliases = ["editor::ToggleHunkDiff"])]
         ToggleSelectedDiffHunks,
