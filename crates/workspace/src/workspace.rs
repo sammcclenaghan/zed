@@ -2016,6 +2016,8 @@ impl Workspace {
         self.serialized_ssh_project = Some(serialized_ssh_project);
     }
 
+
+
     pub fn prompt_for_open_path(
         &mut self,
         path_prompt_options: PathPromptOptions,

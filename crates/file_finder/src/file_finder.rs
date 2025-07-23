@@ -288,7 +288,6 @@ impl FileFinder {
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        eprintln!("DEBUG: handle_toggle_preview called");
         self.picker.update(cx, |picker, cx| {
             let old_enabled = picker.delegate.preview_enabled;
             picker.delegate.preview_enabled = !picker.delegate.preview_enabled;
@@ -495,6 +494,7 @@ pub struct FileFinderDelegate {
     include_ignored_refresh: Task<()>,
     preview_buffer: Option<Entity<Buffer>>,
     preview_enabled: bool,
+    is_obsidian_vault: bool,
 }
 
 /// Use a custom ordering for file finder: the regular one
@@ -894,6 +894,13 @@ impl FileFinderDelegate {
         cx: &mut Context<FileFinder>,
     ) -> Self {
         Self::subscribe_to_updates(&project, window, cx);
+        
+        // Detect if we're in an Obsidian vault by checking for .obsidian folder
+        let is_obsidian_vault = project.read(cx).visible_worktrees(cx).any(|worktree| {
+            let worktree = worktree.read(cx);
+            worktree.entry_for_path(".obsidian").map_or(false, |entry| entry.is_dir())
+        });
+        
         Self {
             file_finder,
             workspace,
@@ -917,6 +924,7 @@ impl FileFinderDelegate {
             include_ignored_refresh: Task::ready(()),
             preview_buffer: None,
             preview_enabled: FileFinderSettings::get_global(cx).preview_enabled,
+            is_obsidian_vault,
         }
     }
 
@@ -1068,7 +1076,7 @@ impl FileFinderDelegate {
                     && !filename.ends_with("/")
                 {
                     // Apply default new file folder if the query doesn't already include a path
-                    let final_path = if !query_path.to_string_lossy().contains('/')
+                    let mut final_path = if !query_path.to_string_lossy().contains('/')
                         && !query_path.to_string_lossy().contains('\\')
                     {
                         // Only a filename was provided, prepend the default folder
@@ -1082,6 +1090,14 @@ impl FileFinderDelegate {
                         // User provided a path, use it as-is
                         query_path.to_path_buf()
                     };
+
+                                        // Auto-append .md extension in Obsidian vaults if not already present
+                    if self.is_obsidian_vault {
+                        let path_str = final_path.to_string_lossy();
+                        if !path_str.ends_with(".md") && !path_str.contains('.') {
+                            final_path = final_path.with_extension("md");
+                        }
+                    }
 
                     self.matches.matches.push(Match::CreateNew(ProjectPath {
                         worktree_id: worktree.id(),
@@ -1103,17 +1119,8 @@ impl FileFinderDelegate {
             self.latest_search_did_cancel = did_cancel;
 
             // Load preview for initially selected item when preview is enabled
-            eprintln!(
-                "DEBUG: set_search_matches - preview_enabled: {}, matches_empty: {}",
-                self.preview_enabled,
-                self.matches.matches.is_empty()
-            );
             if self.preview_enabled && !self.matches.matches.is_empty() {
                 let selected_index = self.selected_index();
-                eprintln!(
-                    "DEBUG: Loading initial preview for index: {}",
-                    selected_index
-                );
                 if let Some(path_match) = self.matches.get(selected_index) {
                     let project_path = match path_match {
                         Match::History { path, .. } => {
@@ -1255,12 +1262,29 @@ impl FileFinderDelegate {
                     }
                 }
                 Match::Search(path_match) => self.labels_for_path_match(&path_match.0),
-                Match::CreateNew(project_path) => (
-                    format!("Create file: {}", project_path.path.display()),
-                    vec![],
-                    String::from(""),
-                    vec![],
-                ),
+                Match::CreateNew(project_path) => {
+                    let display_path = if self.is_obsidian_vault {
+                        // Hide .md extension in Obsidian vaults for display
+                        let path_str = project_path.path.to_string_lossy();
+                        if path_str.ends_with(".md") {
+                            path_str
+                                .strip_suffix(".md")
+                                .unwrap_or(&path_str)
+                                .to_string()
+                        } else {
+                            path_str.to_string()
+                        }
+                    } else {
+                        project_path.path.to_string_lossy().to_string()
+                    };
+
+                    (
+                        format!("Create file: {}", display_path),
+                        vec![],
+                        String::from(""),
+                        vec![],
+                    )
+                }
             };
 
         if file_name_positions.is_empty() {
@@ -1326,8 +1350,18 @@ impl FileFinderDelegate {
             }
         }
 
+        // Hide .md extension in Obsidian vaults for better aesthetics
+        let display_file_name = if self.is_obsidian_vault && file_name.ends_with(".md") {
+            file_name
+                .strip_suffix(".md")
+                .unwrap_or(&file_name)
+                .to_string()
+        } else {
+            file_name
+        };
+
         (
-            HighlightedLabel::new(file_name, file_name_positions),
+            HighlightedLabel::new(display_file_name, file_name_positions),
             HighlightedLabel::new(full_path, full_path_positions)
                 .size(LabelSize::Small)
                 .color(Color::Muted),
@@ -1585,9 +1619,15 @@ impl PickerDelegate for FileFinderDelegate {
         raw_query: String,
         window: &mut Window,
         cx: &mut Context<Picker<Self>>,
-    ) -> Task<()> {
-        eprintln!("DEBUG: update_matches called with query: '{}'", raw_query);
-        let raw_query = raw_query.replace(' ', "");
+    ) -> Task<()> {        
+        // Check if we're in an Obsidian vault to allow spaces in filenames
+        let raw_query = if self.is_obsidian_vault {
+            // In Obsidian vaults, preserve spaces in filenames
+            raw_query.trim().to_owned()
+        } else {
+            // In regular projects, remove spaces as before
+            raw_query.replace(' ', "")
+        };
         let raw_query = raw_query.trim();
 
         let raw_query = match &raw_query.get(0..2) {

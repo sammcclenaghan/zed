@@ -1028,7 +1028,7 @@
     "preview_list_width_ratio": 0.45,
     // Controls how the preview layout is determined.
     // - "auto": Automatically choose based on available space
-    // - "horizontal": Always use side-by-side layout  
+    // - "horizontal": Always use side-by-side layout
     // - "vertical": Always use stacked layout (Telescope-style)
     "preview_layout_mode": "auto"
   },
