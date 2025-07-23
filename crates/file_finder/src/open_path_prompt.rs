@@ -19,7 +19,7 @@ use util::{
     maybe,
     paths::{PathStyle, compare_paths},
 };
-use workspace::Workspace;
+use workspace::{Workspace, WorkspaceSettings};
 
 pub(crate) struct OpenPathPrompt;
 
@@ -194,8 +194,19 @@ impl OpenPathPrompt {
             let delegate =
                 OpenPathDelegate::new(tx, lister.clone(), creating_path, PathStyle::current());
             let picker = Picker::uniform_list(delegate, window, cx).width(rems(34.));
-            let query = lister.default_query(cx);
-            picker.set_query(query, window, cx);
+
+            // Only use the default new file folder when creating a new file
+            let default_query = if creating_path {
+                let settings = WorkspaceSettings::get_global(cx);
+                settings
+                    .default_new_file_folder
+                    .clone()
+                    .unwrap_or_else(|| lister.default_query(cx))
+            } else {
+                lister.default_query(cx)
+            };
+
+            picker.set_query(default_query, window, cx);
             picker
         });
     }

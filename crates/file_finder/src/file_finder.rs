@@ -42,8 +42,8 @@ use ui::{
 };
 use util::{ResultExt, maybe, paths::PathWithPosition, post_inc};
 use workspace::{
-    ModalView, OpenOptions, OpenVisible, SplitDirection, Workspace, item::PreviewTabsSettings,
-    notifications::NotifyResultExt, pane,
+    ModalView, OpenOptions, OpenVisible, SplitDirection, Workspace, WorkspaceSettings,
+    item::PreviewTabsSettings, notifications::NotifyResultExt, pane,
 };
 
 actions!(
@@ -293,7 +293,10 @@ impl FileFinder {
             let old_enabled = picker.delegate.preview_enabled;
             picker.delegate.preview_enabled = !picker.delegate.preview_enabled;
             picker.delegate.preview_buffer = None; // Clear current preview
-            eprintln!("DEBUG: Toggle preview - from {} to {}", old_enabled, picker.delegate.preview_enabled);
+            eprintln!(
+                "DEBUG: Toggle preview - from {} to {}",
+                old_enabled, picker.delegate.preview_enabled
+            );
             cx.notify();
         });
     }
@@ -414,7 +417,7 @@ impl Render for FileFinder {
         if preview_enabled {
             let preview_buffer = self.picker.read(cx).delegate.preview_buffer.clone();
             let project = self.picker.read(cx).delegate.project.clone();
-            
+
             let preview_panel = if let Some(buffer) = preview_buffer {
                 let editor = cx.new(|cx| {
                     let mut editor = Editor::for_buffer(buffer, Some(project), window, cx);
@@ -446,10 +449,10 @@ impl Render for FileFinder {
                             .size_full()
                             .text_color(cx.theme().colors().text_muted)
                             .text_size(px(14.))
-                            .child("Preview")
+                            .child("Preview"),
                     )
             };
-            
+
             base_container.child(
                 h_flex()
                     .size_full()
@@ -459,9 +462,9 @@ impl Render for FileFinder {
                             .w(rems(40.)) // Better proportion for file list
                             .h_full()
                             .bg(cx.theme().colors().surface_background)
-                            .child(self.picker.clone())
+                            .child(self.picker.clone()),
                     )
-                    .child(preview_panel)
+                    .child(preview_panel),
             )
         } else {
             base_container.child(self.picker.clone())
@@ -1064,9 +1067,25 @@ impl FileFinderDelegate {
                     && worktree.entry_for_path(&query_path).is_none()
                     && !filename.ends_with("/")
                 {
+                    // Apply default new file folder if the query doesn't already include a path
+                    let final_path = if !query_path.to_string_lossy().contains('/')
+                        && !query_path.to_string_lossy().contains('\\')
+                    {
+                        // Only a filename was provided, prepend the default folder
+                        let settings = WorkspaceSettings::get_global(cx);
+                        if let Some(default_folder) = &settings.default_new_file_folder {
+                            PathBuf::from(default_folder).join(&query_path)
+                        } else {
+                            query_path.to_path_buf()
+                        }
+                    } else {
+                        // User provided a path, use it as-is
+                        query_path.to_path_buf()
+                    };
+
                     self.matches.matches.push(Match::CreateNew(ProjectPath {
                         worktree_id: worktree.id(),
-                        path: Arc::from(query_path),
+                        path: Arc::from(final_path),
                     }));
                 }
             }
@@ -1084,23 +1103,33 @@ impl FileFinderDelegate {
             self.latest_search_did_cancel = did_cancel;
 
             // Load preview for initially selected item when preview is enabled
-            eprintln!("DEBUG: set_search_matches - preview_enabled: {}, matches_empty: {}", self.preview_enabled, self.matches.matches.is_empty());
+            eprintln!(
+                "DEBUG: set_search_matches - preview_enabled: {}, matches_empty: {}",
+                self.preview_enabled,
+                self.matches.matches.is_empty()
+            );
             if self.preview_enabled && !self.matches.matches.is_empty() {
                 let selected_index = self.selected_index();
-                eprintln!("DEBUG: Loading initial preview for index: {}", selected_index);
+                eprintln!(
+                    "DEBUG: Loading initial preview for index: {}",
+                    selected_index
+                );
                 if let Some(path_match) = self.matches.get(selected_index) {
                     let project_path = match path_match {
                         Match::History { path, .. } => {
-                            eprintln!("DEBUG: Initial preview - History match: {:?}", path.project.path);
+                            eprintln!(
+                                "DEBUG: Initial preview - History match: {:?}",
+                                path.project.path
+                            );
                             Some(path.project.clone())
-                        },
+                        }
                         Match::Search(m) => {
                             eprintln!("DEBUG: Initial preview - Search match: {:?}", m.0.path);
                             Some(ProjectPath {
                                 worktree_id: WorktreeId::from_usize(m.0.worktree_id),
                                 path: m.0.path.clone(),
                             })
-                        },
+                        }
                         Match::CreateNew(_) => {
                             eprintln!("DEBUG: Initial preview - CreateNew match (skipping)");
                             None // Can't preview a file that doesn't exist yet
@@ -1110,24 +1139,33 @@ impl FileFinderDelegate {
                     if let Some(project_path) = project_path {
                         let project = self.project.clone();
                         let file_finder = self.file_finder.clone();
-                        
-                        eprintln!("DEBUG: Spawning initial preview load task for: {:?}", project_path.path);
+
+                        eprintln!(
+                            "DEBUG: Spawning initial preview load task for: {:?}",
+                            project_path.path
+                        );
                         cx.spawn(async move |_picker, cx| {
                             eprintln!("DEBUG: In spawn closure, updating project");
-                            if let Ok(task) = project.update(cx, |project, cx| {
-                                project.open_buffer(project_path, cx)
-                            }) {
+                            if let Ok(task) = project
+                                .update(cx, |project, cx| project.open_buffer(project_path, cx))
+                            {
                                 eprintln!("DEBUG: Project update successful, awaiting buffer");
                                 if let Ok(buffer) = task.await {
-                                    eprintln!("DEBUG: Buffer loaded successfully, updating file finder");
+                                    eprintln!(
+                                        "DEBUG: Buffer loaded successfully, updating file finder"
+                                    );
                                     if let Some(file_finder) = file_finder.upgrade() {
-                                        file_finder.update(cx, |file_finder, cx| {
-                                            file_finder.picker.update(cx, |picker, cx| {
-                                                eprintln!("DEBUG: Setting preview_buffer in delegate");
-                                                picker.delegate.preview_buffer = Some(buffer);
-                                                cx.notify();
-                                            });
-                                        }).log_err();
+                                        file_finder
+                                            .update(cx, |file_finder, cx| {
+                                                file_finder.picker.update(cx, |picker, cx| {
+                                                    eprintln!(
+                                                        "DEBUG: Setting preview_buffer in delegate"
+                                                    );
+                                                    picker.delegate.preview_buffer = Some(buffer);
+                                                    cx.notify();
+                                                });
+                                            })
+                                            .log_err();
                                     } else {
                                         eprintln!("DEBUG: file_finder.upgrade() failed");
                                     }
@@ -1137,12 +1175,16 @@ impl FileFinderDelegate {
                             } else {
                                 eprintln!("DEBUG: Project update failed");
                             }
-                        }).detach();
+                        })
+                        .detach();
                     } else {
                         eprintln!("DEBUG: No project_path to preview");
                     }
                 } else {
-                    eprintln!("DEBUG: No path_match found for selected_index: {}", selected_index);
+                    eprintln!(
+                        "DEBUG: No path_match found for selected_index: {}",
+                        selected_index
+                    );
                 }
             }
 
@@ -1412,8 +1454,6 @@ impl FileFinderDelegate {
         }
         key_context
     }
-
-
 }
 
 fn full_path_budget(
@@ -1452,7 +1492,10 @@ impl PickerDelegate for FileFinderDelegate {
         _window: &mut Window,
         _cx: &mut Context<Picker<Self>>,
     ) -> Option<Box<dyn Fn(&mut Window, &mut App) + 'static>> {
-        eprintln!("DEBUG: selected_index_changed called for index: {}, preview_enabled: {}", ix, self.preview_enabled);
+        eprintln!(
+            "DEBUG: selected_index_changed called for index: {}, preview_enabled: {}",
+            ix, self.preview_enabled
+        );
         if !self.preview_enabled {
             eprintln!("DEBUG: Preview not enabled, returning None");
             return None;
@@ -1461,16 +1504,19 @@ impl PickerDelegate for FileFinderDelegate {
         let path_match = self.matches.get(ix)?;
         let project_path = match path_match {
             Match::History { path, .. } => {
-                eprintln!("DEBUG: Selection change - History match: {:?}", path.project.path);
+                eprintln!(
+                    "DEBUG: Selection change - History match: {:?}",
+                    path.project.path
+                );
                 path.project.clone()
-            },
+            }
             Match::Search(m) => {
                 eprintln!("DEBUG: Selection change - Search match: {:?}", m.0.path);
                 ProjectPath {
                     worktree_id: WorktreeId::from_usize(m.0.worktree_id),
                     path: m.0.path.clone(),
                 }
-            },
+            }
             Match::CreateNew(_) => {
                 eprintln!("DEBUG: Selection change - CreateNew match (skipping)");
                 return None; // Can't preview a file that doesn't exist yet
@@ -1481,13 +1527,14 @@ impl PickerDelegate for FileFinderDelegate {
         let file_finder = self.file_finder.clone();
         let project_path = project_path.clone();
 
-        eprintln!("DEBUG: Returning selection change callback for: {:?}", project_path.path);
+        eprintln!(
+            "DEBUG: Returning selection change callback for: {:?}",
+            project_path.path
+        );
         Some(Box::new(move |_window, cx| {
             eprintln!("DEBUG: Selection change callback executing");
             let project_path = project_path.clone();
-            let task = project.update(cx, |project, cx| {
-                project.open_buffer(project_path, cx)
-            });
+            let task = project.update(cx, |project, cx| project.open_buffer(project_path, cx));
 
             let file_finder = file_finder.clone();
             cx.spawn(async move |cx| {
@@ -1495,20 +1542,23 @@ impl PickerDelegate for FileFinderDelegate {
                 if let Ok(buffer) = task.await {
                     eprintln!("DEBUG: Selection change - buffer loaded, updating file finder");
                     if let Some(file_finder) = file_finder.upgrade() {
-                        file_finder.update(cx, |file_finder, cx| {
-                            file_finder.picker.update(cx, |picker, cx| {
-                                eprintln!("DEBUG: Selection change - setting preview_buffer");
-                                picker.delegate.preview_buffer = Some(buffer);
-                                cx.notify();
-                            });
-                        }).log_err();
+                        file_finder
+                            .update(cx, |file_finder, cx| {
+                                file_finder.picker.update(cx, |picker, cx| {
+                                    eprintln!("DEBUG: Selection change - setting preview_buffer");
+                                    picker.delegate.preview_buffer = Some(buffer);
+                                    cx.notify();
+                                });
+                            })
+                            .log_err();
                     } else {
                         eprintln!("DEBUG: Selection change - file_finder.upgrade() failed");
                     }
                 } else {
                     eprintln!("DEBUG: Selection change - failed to load buffer");
                 }
-            }).detach();
+            })
+            .detach();
         }))
     }
 

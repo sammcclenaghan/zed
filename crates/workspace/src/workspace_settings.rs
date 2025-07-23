@@ -17,6 +17,7 @@ pub struct WorkspaceSettings {
     pub centered_layout: CenteredLayoutSettings,
     pub confirm_quit: bool,
     pub show_call_status_icon: bool,
+    pub default_new_file_folder: Option<String>,
     pub autosave: AutosaveSetting,
     pub restore_on_startup: RestoreOnStartupBehavior,
     pub restore_on_file_reopen: bool,
@@ -142,6 +143,10 @@ pub struct WorkspaceSettingsContent {
     ///
     /// Default: true
     pub show_call_status_icon: Option<bool>,
+    /// The default folder for new files created via the UI.
+    ///
+    /// Default: none
+    pub default_new_file_folder: Option<String>,
     /// When to automatically save edited buffers.
     ///
     /// Default: off
