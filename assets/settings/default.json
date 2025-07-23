@@ -1019,7 +1019,18 @@
     //   * `null`: Be smart and search for ignored when called from a gitignored worktree
     "include_ignored": null,
     // Whether to show a file preview pane in the file finder (Telescope-style).
-    "preview_enabled": false
+    "preview_enabled": false,
+    // Width threshold (in pixels) below which the preview layout switches to vertical (stacked).
+    // This provides a Neovim telescope-like experience on narrow screens.
+    "preview_vertical_threshold": 480,
+    // Ratio of width allocated to the file list when using horizontal preview layout.
+    // The preview panel gets the remaining width. Value should be between 0.1 and 0.9.
+    "preview_list_width_ratio": 0.45,
+    // Controls how the preview layout is determined.
+    // - "auto": Automatically choose based on available space
+    // - "horizontal": Always use side-by-side layout  
+    // - "vertical": Always use stacked layout (Telescope-style)
+    "preview_layout_mode": "auto"
   },
   // Whether or not to remove any trailing whitespace from lines of a buffer
   // before saving it.

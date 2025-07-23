@@ -692,14 +692,6 @@
       "cmd-shift-x": "zed::Extensions",
       "f5": "debugger::Rerun",
       "cmd-w": "workspace::CloseActiveDock",
-      "space a": "harpoon::Mark",
-      "ctrl-e": "harpoon::ShowPicker",
-      "ctrl-h": "harpoon::Jump1",
-      "ctrl-t": "harpoon::Jump2",
-      "ctrl-n": "harpoon::Jump3",
-      "ctrl-s": "harpoon::Jump4",
-      "ctrl-shift-p": "harpoon::Jump5",
-      "ctrl-shift-n": "harpoon::Jump6"
     }
   },
   {
