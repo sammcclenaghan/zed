@@ -228,17 +228,6 @@ fn render_markdown_paragraph(parsed: &MarkdownParagraph, cx: &mut RenderContext)
         .into_any()
 }
 
-fn render_markdown_paragraph_tight(
-    parsed: &MarkdownParagraph,
-    cx: &mut RenderContext,
-) -> AnyElement {
-    div()
-        .text_size(cx.scaled_rems(1.0))
-        .line_height(relative(1.6))
-        .children(render_markdown_text(parsed, cx))
-        .into_any()
-}
-
 fn render_markdown_list_item(
     parsed: &ParsedMarkdownListItem,
     cx: &mut RenderContext,
@@ -293,6 +282,7 @@ fn render_markdown_list_item(
                 cx.next_id(&parsed.source_range),
                 *checked,
                 parsed.source_range.clone(),
+                false,
                 cx.checkbox_clicked_callback.clone(),
                 &*cx,
             );
@@ -315,7 +305,7 @@ struct MarkdownCheckbox {
     id: ElementId,
     toggle_state: ToggleState,
     disabled: bool,
-    placeholder: SharedString,
+    placeholder: bool,
     on_click: Option<CheckboxClickedCallback>,
     filled: bool,
     style: Option<ui::ButtonStyle>,
@@ -330,6 +320,7 @@ impl MarkdownCheckbox {
         element_id: ElementId,
         checked: bool,
         source_range: Range<usize>,
+        placeholder: bool,
         on_click: Option<CheckboxClickedCallback>,
         render_cx: &RenderContext,
     ) -> Self {
@@ -343,7 +334,7 @@ impl MarkdownCheckbox {
             id: element_id,
             toggle_state,
             disabled: false,
-            placeholder: " ".into(),
+            placeholder: false,
             on_click: on_click,
             filled: false,
             style: None,
@@ -377,48 +368,97 @@ impl MarkdownCheckbox {
 }
 
 impl gpui::RenderOnce for MarkdownCheckbox {
-    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let group_id = format!("checkbox_group_{}", self.id);
+    fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
+        let group_id = format!("checkbox_group_{:?}", self.id);
+        let color = if self.disabled {
+            Color::Disabled
+        } else {
+            Color::Selected
+        };
+        let icon_size_small = IconSize::Custom(self.render_cx.scaled_rems(14. / 16.)); // was IconSize::Small
+        let icon = match self.toggle_state {
+            ToggleState::Selected => {
+                if self.placeholder {
+                    None
+                } else {
+                    Some(
+                        ui::Icon::new(IconName::Check)
+                            .size(icon_size_small)
+                            .color(color),
+                    )
+                }
+            }
+            ToggleState::Indeterminate => Some(
+                ui::Icon::new(IconName::Dash)
+                    .size(icon_size_small)
+                    .color(color),
+            ),
+            ToggleState::Unselected => None,
+        };
 
-        div()
-            .group(group_id.clone())
+        let bg_color = self.bg_color(cx);
+        let border_color = self.border_color(cx);
+        let hover_border_color = border_color.alpha(0.7);
+
+        let size = self.render_cx.scaled_rems(1.25); // was Self::container_size(); (20px)
+
+        let checkbox = h_flex()
             .id(self.id.clone())
-            .flex()
-            .flex_none()
             .justify_center()
             .items_center()
-            .size(self.render_cx.scaled_rems(1.2))
-            .bg(self.bg_color(cx))
-            .border_1()
-            .border_color(self.border_color(cx))
-            .rounded_sm()
-            .when_some(self.on_click, |this, on_click| {
-                let source_range = self.source_range.clone();
-                this.cursor_pointer().on_click(move |_event, window, cx| {
-                    let new_state = match self.toggle_state {
-                        ToggleState::Selected => false,
-                        _ => true,
-                    };
-                    on_click(new_state, source_range.clone(), window, cx);
-                })
+            .size(size)
+            .group(group_id.clone())
+            .child(
+                div()
+                    .flex()
+                    .flex_none()
+                    .justify_center()
+                    .items_center()
+                    .m(self.render_cx.scaled_rems(0.25)) // was .m_1
+                    .size(self.render_cx.scaled_rems(1.0)) // was .size_4
+                    .rounded(self.render_cx.scaled_rems(0.125)) // was .rounded_xs
+                    .border_1()
+                    .bg(bg_color)
+                    .border_color(border_color)
+                    .when(self.disabled, |this| this.cursor_not_allowed())
+                    .when(self.disabled, |this| {
+                        this.bg(cx.theme().colors().element_disabled.opacity(0.6))
+                    })
+                    .when(!self.disabled, |this| {
+                        this.group_hover(group_id.clone(), |el| el.border_color(hover_border_color))
+                    })
+                    .when(self.placeholder, |this| {
+                        this.child(
+                            div()
+                                .flex_none()
+                                .rounded_full()
+                                .bg(color.color(cx).alpha(0.5))
+                                .size(self.render_cx.scaled_rems(0.25)), // was .size_1
+                        )
+                    })
+                    .children(icon),
+            );
+
+        h_flex()
+            .id(self.id)
+            .gap(ui::DynamicSpacing::Base06.rems(cx))
+            .child(checkbox)
+            .when_some(
+                self.on_click.filter(|_| !self.disabled),
+                |this, on_click| {
+                    this.on_click(move |_, window, cx| {
+                        let toggle = self.toggle_state.inverse();
+                        let checked = toggle.selected();
+                        on_click(checked, self.source_range.clone(), window, cx)
+                    })
+                },
+            )
+            // TODO: Allow label size to be different from default.
+            // TODO: Allow label color to be different from muted.
+            .when_some(self.label, |this, label| {
+                this.child(Label::new(label).color(Color::Muted))
             })
-            .when(self.toggle_state == ToggleState::Selected, |this| {
-                this.child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .size_full()
-                        .child(
-                            ui::Icon::new(IconName::Check)
-                                .size(IconSize::XSmall)
-                                .color(Color::Selected),
-                        ),
-                )
-            })
-            .when_some(self.tooltip.clone(), |this, tooltip| {
-                this.tooltip(move |_window, _cx| tooltip.clone().into())
-            })
+            .when_some(self.tooltip, |this, tooltip| this.child(tooltip))
     }
 }
 

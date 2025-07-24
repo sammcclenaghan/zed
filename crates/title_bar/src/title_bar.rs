@@ -22,9 +22,9 @@ use auto_update::AutoUpdateStatus;
 use call::ActiveCall;
 use client::{Client, UserStore, zed_urls};
 use gpui::{
-    Action, AnyElement, App, Context, Corner, Element, Entity, Focusable, InteractiveElement,
-    IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement, Styled,
-    Subscription, WeakEntity, Window, actions, div,
+    Action, AnyElement, App, Context, Corner, Element, Entity, Focusable, FontWeight,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement,
+    Styled, Subscription, WeakEntity, Window, actions, div,
 };
 use onboarding_banner::OnboardingBanner;
 use project::Project;
@@ -36,10 +36,10 @@ use theme::ActiveTheme;
 use title_bar_settings::TitleBarSettings;
 use ui::{
     Avatar, Button, ButtonLike, ButtonStyle, Chip, ContextMenu, Icon, IconName, IconSize,
-    IconWithIndicator, Indicator, PopoverMenu, Tooltip, h_flex, prelude::*,
+    IconWithIndicator, Indicator, Label, LabelSize, PopoverMenu, Tooltip, h_flex, prelude::*,
 };
 use util::ResultExt;
-use workspace::{Workspace, notifications::NotifyResultExt};
+use workspace::{Workspace, WorkspaceSettings, notifications::NotifyResultExt};
 use zed_actions::{OpenRecent, OpenRemote};
 
 pub use onboarding_banner::restore_banner;
@@ -166,6 +166,7 @@ impl Render for TitleBar {
                                 .when(title_bar_settings.show_branch_name, |title_bar| {
                                     title_bar.children(self.render_project_branch(cx))
                                 })
+                                .children(self.render_vault_mode_indicator(cx))
                         })
                 })
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -519,6 +520,53 @@ impl TitleBar {
                             .icon_size(IconSize::Indicator)
                     },
                 ),
+        )
+    }
+
+    pub fn render_vault_mode_indicator(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        // Check if we're in an Obsidian vault
+        let is_obsidian_vault = self.project.read(cx).visible_worktrees(cx).any(|worktree| {
+            let worktree = worktree.read(cx);
+            worktree.entry_for_path(".obsidian").map_or(false, |entry| entry.is_dir())
+        });
+
+        if !is_obsidian_vault {
+            return None;
+        }
+
+        // Get the default folder setting if configured
+        let settings = WorkspaceSettings::get_global(cx);
+        let tooltip_text = if let Some(default_folder) = &settings.default_new_file_folder {
+            format!("Obsidian Vault • New notes in: {}", default_folder)
+        } else {
+            "Obsidian Vault • New notes in project root".to_string()
+        };
+
+        Some(
+            ButtonLike::new("vault-mode-indicator")
+                .child(
+                    h_flex()
+                        .gap_1p5()
+                        .items_center()
+                        .px_3()
+                        .py_1p5()
+                        .rounded_lg()
+                        .bg(cx.theme().colors().text_accent.alpha(0.12))
+                        .border_1()
+                        .border_color(cx.theme().colors().text_accent.alpha(0.3))
+                        .child(
+                            Icon::new(IconName::Book)
+                                .size(IconSize::Small)
+                                .color(Color::Accent),
+                        )
+                        .child(
+                            Label::new("Vault")
+                                .size(LabelSize::Small)
+                                .color(Color::Accent)
+                                .weight(FontWeight::SEMIBOLD),
+                        ),
+                )
+                .tooltip(Tooltip::text(tooltip_text))
         )
     }
 

@@ -2016,6 +2016,15 @@ impl Workspace {
         self.serialized_ssh_project = Some(serialized_ssh_project);
     }
 
+    /// Checks if any of the worktrees in this workspace contain a .obsidian folder,
+    /// indicating this is an Obsidian vault.
+    pub fn is_obsidian_vault(&self, cx: &App) -> bool {
+        self.project.read(cx).visible_worktrees(cx).any(|worktree| {
+            let worktree = worktree.read(cx);
+            worktree.entry_for_path(".obsidian").map_or(false, |entry| entry.is_dir())
+        })
+    }
+
 
 
     pub fn prompt_for_open_path(

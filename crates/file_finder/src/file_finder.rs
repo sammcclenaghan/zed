@@ -894,13 +894,15 @@ impl FileFinderDelegate {
         cx: &mut Context<FileFinder>,
     ) -> Self {
         Self::subscribe_to_updates(&project, window, cx);
-        
+
         // Detect if we're in an Obsidian vault by checking for .obsidian folder
         let is_obsidian_vault = project.read(cx).visible_worktrees(cx).any(|worktree| {
             let worktree = worktree.read(cx);
-            worktree.entry_for_path(".obsidian").map_or(false, |entry| entry.is_dir())
+            worktree
+                .entry_for_path(".obsidian")
+                .map_or(false, |entry| entry.is_dir())
         });
-        
+
         Self {
             file_finder,
             workspace,
@@ -1091,7 +1093,7 @@ impl FileFinderDelegate {
                         query_path.to_path_buf()
                     };
 
-                                        // Auto-append .md extension in Obsidian vaults if not already present
+                    // Auto-append .md extension in Obsidian vaults if not already present
                     if self.is_obsidian_vault {
                         let path_str = final_path.to_string_lossy();
                         if !path_str.ends_with(".md") && !path_str.contains('.') {
@@ -1619,7 +1621,7 @@ impl PickerDelegate for FileFinderDelegate {
         raw_query: String,
         window: &mut Window,
         cx: &mut Context<Picker<Self>>,
-    ) -> Task<()> {        
+    ) -> Task<()> {
         // Check if we're in an Obsidian vault to allow spaces in filenames
         let raw_query = if self.is_obsidian_vault {
             // In Obsidian vaults, preserve spaces in filenames

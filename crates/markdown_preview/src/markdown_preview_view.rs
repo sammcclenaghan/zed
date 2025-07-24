@@ -15,14 +15,14 @@ use settings::Settings;
 use theme::ThemeSettings;
 use ui::prelude::*;
 use workspace::item::{Item, ItemHandle};
-use workspace::{Pane, Workspace};
+use workspace::{Pane, Workspace, WorkspaceSettings};
 
 use crate::markdown_elements::ParsedMarkdownElement;
 use crate::{
     MovePageDown, MovePageUp, OpenFollowingPreview, OpenFollowingPreviewToTheSide, OpenPreview,
     OpenPreviewToTheSide,
     markdown_elements::ParsedMarkdown,
-    markdown_parser::parse_markdown_with_project_root,
+    markdown_parser::parse_markdown_with_obsidian_settings,
     markdown_renderer::{RenderContext, render_markdown_block},
 };
 
@@ -493,7 +493,7 @@ impl MarkdownPreviewView {
                 cx.background_executor().timer(REPARSE_DEBOUNCE).await;
             }
 
-            let (contents, file_location, project_root, project_files) =
+            let (contents, file_location, project_root, project_files, default_folder) =
                 view.update(cx, |view, cx| {
                     let editor = editor.read(cx);
                     let contents = editor.buffer().read(cx).snapshot(cx).text();
@@ -501,16 +501,18 @@ impl MarkdownPreviewView {
                         MarkdownPreviewView::get_folder_for_active_editor(editor, cx);
                     let project_root = view.get_project_root(cx);
                     let project_files = view.get_project_files(cx);
-                    (contents, file_location, project_root, project_files)
+                    let default_folder = view.get_default_folder_for_obsidian_vault(cx);
+                    (contents, file_location, project_root, project_files, default_folder)
                 })?;
 
             let parsing_task = cx.background_spawn(async move {
-                parse_markdown_with_project_root(
+                parse_markdown_with_obsidian_settings(
                     &contents,
                     file_location,
                     project_root,
                     project_files,
                     Some(language_registry),
+                    default_folder,
                 )
                 .await
             });
@@ -598,6 +600,28 @@ impl MarkdownPreviewView {
                 None
             } else {
                 Some(all_files)
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_default_folder_for_obsidian_vault(&self, cx: &App) -> Option<String> {
+        if let Some(workspace) = self.workspace.upgrade() {
+            let workspace = workspace.read(cx);
+            
+            // Check if we're in an Obsidian vault
+            let is_obsidian_vault = workspace.project().read(cx).visible_worktrees(cx).any(|worktree| {
+                let worktree = worktree.read(cx);
+                worktree.entry_for_path(".obsidian").map_or(false, |entry| entry.is_dir())
+            });
+            
+            if is_obsidian_vault {
+                // Get the default new file folder setting for Obsidian vaults
+                let settings = WorkspaceSettings::get_global(cx);
+                settings.default_new_file_folder.clone()
+            } else {
+                None
             }
         } else {
             None

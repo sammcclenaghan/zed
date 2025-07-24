@@ -28,6 +28,25 @@ pub async fn parse_markdown_with_project_root(
     project_files: Option<Vec<PathBuf>>,
     language_registry: Option<Arc<LanguageRegistry>>,
 ) -> ParsedMarkdown {
+    parse_markdown_with_obsidian_settings(
+        markdown_input,
+        file_location_directory,
+        project_root,
+        project_files,
+        language_registry,
+        None,
+    )
+    .await
+}
+
+pub async fn parse_markdown_with_obsidian_settings(
+    markdown_input: &str,
+    file_location_directory: Option<PathBuf>,
+    project_root: Option<PathBuf>,
+    project_files: Option<Vec<PathBuf>>,
+    language_registry: Option<Arc<LanguageRegistry>>,
+    default_new_file_folder: Option<String>,
+) -> ParsedMarkdown {
     // Preprocess wiki-style [[link]]s before markdown parsing
     let wiki_preprocessed = preprocess_wikilinks(markdown_input);
     // Preprocess LaTeX math syntax before markdown parsing
@@ -43,6 +62,7 @@ pub async fn parse_markdown_with_project_root(
         project_root,
         project_files,
         language_registry,
+        default_new_file_folder,
     );
     let renderer = parser.parse_document().await;
     ParsedMarkdown {
@@ -153,6 +173,7 @@ struct MarkdownParser<'a> {
     project_root: Option<PathBuf>,
     project_files: Option<Vec<PathBuf>>,
     language_registry: Option<Arc<LanguageRegistry>>,
+    default_new_file_folder: Option<String>,
 }
 
 struct MarkdownListItem {
@@ -176,6 +197,7 @@ impl<'a> MarkdownParser<'a> {
         project_root: Option<PathBuf>,
         project_files: Option<Vec<PathBuf>>,
         language_registry: Option<Arc<LanguageRegistry>>,
+        default_new_file_folder: Option<String>,
     ) -> Self {
         Self {
             tokens,
@@ -183,6 +205,7 @@ impl<'a> MarkdownParser<'a> {
             project_root,
             project_files,
             language_registry,
+            default_new_file_folder,
             cursor: 0,
             parsed: vec![],
         }
@@ -505,8 +528,14 @@ impl<'a> MarkdownParser<'a> {
                                 if let Some(existing_path) = self.find_file_in_project(&dest_str) {
                                     existing_path
                                 } else if let Some(project_root) = &self.project_root {
-                                    // File doesn't exist, create in project root
-                                    project_root.join(&dest_str)
+                                    // File doesn't exist - determine where to create it
+                                    if let Some(default_folder) = &self.default_new_file_folder {
+                                        // In Obsidian vaults, use the default note destination
+                                        project_root.join(default_folder).join(&dest_str)
+                                    } else {
+                                        // Create in project root (original behavior)
+                                        project_root.join(&dest_str)
+                                    }
                                 } else if let Some(dir) = &self.file_location_directory {
                                     // Fallback to file directory
                                     dir.join(&dest_str)

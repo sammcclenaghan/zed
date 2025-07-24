@@ -1,7 +1,7 @@
 use crate::{ItemHandle, Pane};
 use gpui::{
-    AnyView, App, Context, Decorations, Entity, IntoElement, ParentElement, Render, Styled,
-    Subscription, Window,
+    AnyView, App, Context, Decorations, Entity, IntoElement, ParentElement, Render,
+    Styled, Subscription, Window,
 };
 use std::any::TypeId;
 use theme::CLIENT_SIDE_DECORATION_ROUNDING;
@@ -27,6 +27,8 @@ trait StatusItemViewHandle: Send {
     );
     fn item_type(&self) -> TypeId;
 }
+
+
 
 pub struct StatusBar {
     left_items: Vec<Box<dyn StatusItemViewHandle>>,

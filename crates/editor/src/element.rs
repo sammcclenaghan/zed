@@ -3094,24 +3094,25 @@ impl EditorElement {
             return Arc::default();
         }
 
-        let (newest_selection_head, is_relative, is_hybrid) = self.editor.update(cx, |editor, cx| {
-            let newest_selection_head = newest_selection_head.unwrap_or_else(|| {
-                let newest = editor.selections.newest::<Point>(cx);
-                SelectionLayout::new(
-                    newest,
-                    editor.selections.line_mode,
-                    editor.cursor_shape,
-                    &snapshot.display_snapshot,
-                    true,
-                    true,
-                    None,
-                )
-                .head
+        let (newest_selection_head, is_relative, is_hybrid) =
+            self.editor.update(cx, |editor, cx| {
+                let newest_selection_head = newest_selection_head.unwrap_or_else(|| {
+                    let newest = editor.selections.newest::<Point>(cx);
+                    SelectionLayout::new(
+                        newest,
+                        editor.selections.line_mode,
+                        editor.cursor_shape,
+                        &snapshot.display_snapshot,
+                        true,
+                        true,
+                        None,
+                    )
+                    .head
+                });
+                let is_relative = editor.should_use_relative_line_numbers(cx);
+                let is_hybrid = EditorSettings::get_global(cx).hybrid_line_numbers;
+                (newest_selection_head, is_relative, is_hybrid)
             });
-            let is_relative = editor.should_use_relative_line_numbers(cx);
-            let is_hybrid = EditorSettings::get_global(cx).hybrid_line_numbers;
-            (newest_selection_head, is_relative, is_hybrid)
-        });
 
         let relative_to = if is_relative || is_hybrid {
             Some(newest_selection_head.row())
@@ -3127,13 +3128,13 @@ impl EditorElement {
                 let display_row = DisplayRow(rows.start.0 + ix as u32);
                 line_number.clear();
                 let non_relative_number = row_info.buffer_row? + 1;
-                
+
                 if is_hybrid {
                     // In hybrid mode, show both relative and absolute numbers
                     let relative_number = relative_rows
                         .get(&display_row)
                         .unwrap_or(&non_relative_number);
-                    
+
                     if *relative_number == non_relative_number {
                         // Current line - just show the absolute number
                         write!(&mut line_number, "{}", non_relative_number).unwrap();
@@ -3144,7 +3145,12 @@ impl EditorElement {
                         } else {
                             format!("-{}", non_relative_number - relative_number)
                         };
-                        write!(&mut line_number, "{} {}", non_relative_number, relative_number).unwrap();
+                        write!(
+                            &mut line_number,
+                            "{} {}",
+                            non_relative_number, relative_number
+                        )
+                        .unwrap();
                     }
                 } else {
                     // Normal relative or absolute mode

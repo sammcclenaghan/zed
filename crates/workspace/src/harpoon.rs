@@ -8,8 +8,7 @@ use project::{Project, ProjectPath};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use settings::{Settings, SettingsSources};
-use ui::{ListItem, prelude::*};
-use util::ResultExt;
+use ui::prelude::*;
 
 // Forward declaration - we can't import these since we're in the workspace crate itself
 use crate::{ModalView, Workspace};
