@@ -100,11 +100,12 @@ impl HarpoonStore {
         project_path: ProjectPath,
         cx: &mut Context<Self>,
     ) -> Result<usize> {
-            // Check for duplicates
-        if let Some(existing_slot) = self.is_marked(&project_path) {
-            // Already marked, return the slot index
-            return Ok(existing_slot);
-        }
+                    // Check for duplicates
+                    if let Some(existing_slot) = self.is_marked(&project_path) {
+                        // Already marked, return the slot index
+                            return Ok(existing_slot);
+                        }
+                        // Find the first empty slot
         // Find the first empty slot
         let slot = self
             .marks
@@ -123,8 +124,7 @@ impl HarpoonStore {
             project_path,
             display_name,
         };
-
-        if 
+        
 
         self.marks[slot] = Some(mark);
         cx.emit(HarpoonEvent::MarksChanged);
