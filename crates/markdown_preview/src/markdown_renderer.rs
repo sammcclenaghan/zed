@@ -334,7 +334,7 @@ impl MarkdownCheckbox {
             id: element_id,
             toggle_state,
             disabled: false,
-            placeholder: false,
+            placeholder,
             on_click: on_click,
             filled: false,
             style: None,

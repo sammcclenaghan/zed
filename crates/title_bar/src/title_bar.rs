@@ -23,8 +23,8 @@ use call::ActiveCall;
 use client::{Client, UserStore, zed_urls};
 use gpui::{
     Action, AnyElement, App, Context, Corner, Element, Entity, Focusable, FontWeight,
-    InteractiveElement, IntoElement, MouseButton, ParentElement, Render, StatefulInteractiveElement,
-    Styled, Subscription, WeakEntity, Window, actions, div,
+    InteractiveElement, IntoElement, MouseButton, ParentElement, Render,
+    StatefulInteractiveElement, Styled, Subscription, WeakEntity, Window, actions, div,
 };
 use onboarding_banner::OnboardingBanner;
 use project::Project;
@@ -166,7 +166,6 @@ impl Render for TitleBar {
                                 .when(title_bar_settings.show_branch_name, |title_bar| {
                                     title_bar.children(self.render_project_branch(cx))
                                 })
-                                .children(self.render_vault_mode_indicator(cx))
                         })
                 })
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
@@ -185,6 +184,7 @@ impl Render for TitleBar {
                 .pr_1()
                 .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
                 .children(self.render_call_controls(window, cx))
+                .children(self.render_vault_mode_indicator(cx))
                 .map(|el| {
                     let status = self.client.status();
                     let status = &*status.borrow();
@@ -523,53 +523,6 @@ impl TitleBar {
         )
     }
 
-    pub fn render_vault_mode_indicator(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
-        // Check if we're in an Obsidian vault
-        let is_obsidian_vault = self.project.read(cx).visible_worktrees(cx).any(|worktree| {
-            let worktree = worktree.read(cx);
-            worktree.entry_for_path(".obsidian").map_or(false, |entry| entry.is_dir())
-        });
-
-        if !is_obsidian_vault {
-            return None;
-        }
-
-        // Get the default folder setting if configured
-        let settings = WorkspaceSettings::get_global(cx);
-        let tooltip_text = if let Some(default_folder) = &settings.default_new_file_folder {
-            format!("Obsidian Vault • New notes in: {}", default_folder)
-        } else {
-            "Obsidian Vault • New notes in project root".to_string()
-        };
-
-        Some(
-            ButtonLike::new("vault-mode-indicator")
-                .child(
-                    h_flex()
-                        .gap_1p5()
-                        .items_center()
-                        .px_3()
-                        .py_1p5()
-                        .rounded_lg()
-                        .bg(cx.theme().colors().text_accent.alpha(0.12))
-                        .border_1()
-                        .border_color(cx.theme().colors().text_accent.alpha(0.3))
-                        .child(
-                            Icon::new(IconName::Book)
-                                .size(IconSize::Small)
-                                .color(Color::Accent),
-                        )
-                        .child(
-                            Label::new("Vault")
-                                .size(LabelSize::Small)
-                                .color(Color::Accent)
-                                .weight(FontWeight::SEMIBOLD),
-                        ),
-                )
-                .tooltip(Tooltip::text(tooltip_text))
-        )
-    }
-
     fn window_activation_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if window.is_window_active() {
             ActiveCall::global(cx)
@@ -653,6 +606,51 @@ impl TitleBar {
             }
             _ => None,
         }
+    }
+
+    pub fn render_vault_mode_indicator(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        // Check if we're in an Obsidian vault
+        let is_obsidian_vault = self.project.read(cx).visible_worktrees(cx).any(|worktree| {
+            let worktree = worktree.read(cx);
+            worktree
+                .entry_for_path(".obsidian")
+                .map_or(false, |entry| entry.is_dir())
+        });
+
+        if !is_obsidian_vault {
+            return None;
+        }
+
+        // Get the default folder setting if configured
+        let settings = WorkspaceSettings::get_global(cx);
+        let tooltip_text = if let Some(default_folder) = &settings.default_new_file_folder {
+            format!("Obsidian Vault • New notes in: {}", default_folder)
+        } else {
+            "Obsidian Vault • New notes in project root".to_string()
+        };
+
+        Some(
+            ButtonLike::new("vault-mode-indicator")
+                .child(
+                    h_flex()
+                        .gap_1p5()
+                        .items_center()
+                        .px_3()
+                        .py_1p5()
+                        .child(
+                            Icon::new(IconName::Book)
+                                .size(IconSize::Small)
+                                .color(Color::Muted),
+                        )
+                        .child(
+                            Label::new("Vault Mode")
+                                .size(LabelSize::Small)
+                                .color(Color::Muted)
+                                .weight(FontWeight::SEMIBOLD),
+                        ),
+                )
+                .tooltip(Tooltip::text(tooltip_text)),
+        )
     }
 
     pub fn render_sign_in_button(&mut self, _: &mut Context<Self>) -> Button {

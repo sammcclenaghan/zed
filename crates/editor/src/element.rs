@@ -3143,7 +3143,7 @@ impl EditorElement {
                         let relative_delta = if *relative_number > non_relative_number {
                             format!("+{}", relative_number - non_relative_number)
                         } else {
-                            format!("-{}", non_relative_number - relative_number)
+                            format!("-{}", non_relative_number - *relative_number)
                         };
                         write!(
                             &mut line_number,
