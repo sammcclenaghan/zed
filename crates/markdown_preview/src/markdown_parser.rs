@@ -148,9 +148,9 @@ fn preprocess_wikilinks(input: &str) -> String {
                 // Convert ![[image.jpg]] to ![image](image.jpg)
                 result.push_str(&format!("![{}]({})", inner, inner));
             } else {
-                // Regular wiki link - convert [[Note Name]] to [Note Name](Note_Name.md)
-                let link_target = inner.replace(' ', "_");
-                result.push_str(&format!("[{}]({})", inner, format!("{}.md", link_target)));
+                // Regular wiki link - convert [[Note Name]] to [Note Name](Note Name.md)
+                // Keep spaces in the target path for Obsidian-style behavior
+                result.push_str(&format!("[{}](<{}>)", inner, format!("{}.md", inner)));
             }
 
             rest = &rest[start + 2 + end + 2..];

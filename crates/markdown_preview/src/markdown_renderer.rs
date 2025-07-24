@@ -551,6 +551,15 @@ fn render_markdown_table_row(
         .into_any()
 }
 
+fn obsidian_wikilink_to_filename(title: &str) -> String {
+    let trimmed = title.trim();
+    if trimmed.to_lowercase().ends_with(".md") {
+        trimmed.to_string()
+    } else {
+        format!("{}.md", trimmed)
+    }
+}
+
 fn render_markdown_block_quote(
     parsed: &ParsedMarkdownBlockQuote,
     cx: &mut RenderContext,
@@ -737,10 +746,15 @@ fn render_markdown_text(parsed_new: &MarkdownParagraph, cx: &mut RenderContext) 
                                     Link::Web { url } => cx.open_url(url),
                                     Link::Path { path, .. } => {
                                         if let Some(workspace) = &workspace {
+                                            let filename = obsidian_wikilink_to_filename(
+                                                &path.to_string_lossy(),
+                                            );
                                             _ = workspace.update(cx, |workspace, cx| {
                                                 workspace
                                                     .open_abs_path(
-                                                        normalize_path(path.clone().as_path()),
+                                                        normalize_path(std::path::Path::new(
+                                                            &filename,
+                                                        )),
                                                         OpenOptions {
                                                             visible: Some(OpenVisible::None),
                                                             ..Default::default()
@@ -1007,10 +1021,15 @@ fn render_markdown_text(parsed_new: &MarkdownParagraph, cx: &mut RenderContext) 
                                     Link::Web { url } => cx.open_url(url),
                                     Link::Path { path, .. } => {
                                         if let Some(workspace) = &workspace {
+                                            let filename = obsidian_wikilink_to_filename(
+                                                &path.to_string_lossy(),
+                                            );
                                             _ = workspace.update(cx, |workspace, cx| {
                                                 workspace
                                                     .open_abs_path(
-                                                        normalize_path(path.clone().as_path()),
+                                                        normalize_path(std::path::Path::new(
+                                                            &filename,
+                                                        )),
                                                         OpenOptions {
                                                             visible: Some(OpenVisible::None),
                                                             ..Default::default()
