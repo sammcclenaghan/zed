@@ -224,6 +224,9 @@ pub struct ProjectSearchView {
 pub struct ProjectSearchSettings {
     search_options: SearchOptions,
     filters_enabled: bool,
+    included_files_text: String,
+    excluded_files_text: String,
+    included_opened_only: bool,
 }
 
 pub struct ProjectSearchBar {
@@ -651,15 +654,21 @@ impl ProjectSearchView {
         ActiveSettings::update_global(cx, |settings, cx| {
             settings.0.insert(
                 self.entity.read(cx).project.downgrade(),
-                self.current_settings(),
+                self.current_settings(cx),
             );
         });
     }
 
-    fn current_settings(&self) -> ProjectSearchSettings {
+    fn current_settings(&self, cx: &App) -> ProjectSearchSettings {
+        let included_text = self.included_files_editor.read(cx).text(cx);
+        let excluded_text = self.excluded_files_editor.read(cx).text(cx);
+
         ProjectSearchSettings {
             search_options: self.search_options,
             filters_enabled: self.filters_enabled,
+            included_files_text: included_text,
+            excluded_files_text: excluded_text,
+            included_opened_only: self.included_opened_only,
         }
     }
 
@@ -668,14 +677,20 @@ impl ProjectSearchView {
         ActiveSettings::update_global(cx, |settings, cx| {
             settings.0.insert(
                 self.entity.read(cx).project.downgrade(),
-                self.current_settings(),
+                self.current_settings(cx),
             );
         });
         self.adjust_query_regex_language(cx);
     }
 
-    fn toggle_opened_only(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
+    fn toggle_opened_only(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.included_opened_only = !self.included_opened_only;
+        ActiveSettings::update_global(cx, |settings, cx| {
+            settings.0.insert(
+                self.entity.read(cx).project.downgrade(),
+                self.current_settings(cx),
+            );
+        });
     }
 
     fn replace_next(&mut self, _: &ReplaceNext, window: &mut Window, cx: &mut Context<Self>) {
@@ -741,12 +756,24 @@ impl ProjectSearchView {
         let mut subscriptions = Vec::new();
 
         // Read in settings if available
-        let (mut options, filters_enabled) = if let Some(settings) = settings {
-            (settings.search_options, settings.filters_enabled)
+        let (
+            mut options,
+            filters_enabled,
+            included_files_text,
+            excluded_files_text,
+            included_opened_only,
+        ) = if let Some(settings) = settings {
+            (
+                settings.search_options,
+                settings.filters_enabled,
+                settings.included_files_text,
+                settings.excluded_files_text,
+                settings.included_opened_only,
+            )
         } else {
             let search_options =
                 SearchOptions::from_settings(&EditorSettings::get_global(cx).search);
-            (search_options, false)
+            (search_options, false, String::new(), String::new(), false)
         };
 
         {
@@ -815,28 +842,46 @@ impl ProjectSearchView {
         let included_files_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
             editor.set_placeholder_text("Include: crates/**/*.toml", cx);
+            if !included_files_text.is_empty() {
+                editor.set_text(included_files_text.as_str(), window, cx);
+            }
 
             editor
         });
-        // Subscribe to include_files_editor in order to reraise editor events for workspace item activation purposes
-        subscriptions.push(
-            cx.subscribe(&included_files_editor, |_, _, event: &EditorEvent, cx| {
-                cx.emit(ViewEvent::EditorEvent(event.clone()))
-            }),
-        );
+        // Subscribe to include_files_editor to reraise editor events and persist settings when edited
+        subscriptions.push(cx.subscribe(&included_files_editor, |this, _, event: &EditorEvent, cx| {
+            if let EditorEvent::Edited { .. } = event {
+                ActiveSettings::update_global(cx, |settings, cx| {
+                    settings.0.insert(
+                        this.entity.read(cx).project.downgrade(),
+                        this.current_settings(cx),
+                    );
+                });
+            }
+            cx.emit(ViewEvent::EditorEvent(event.clone()))
+        }));
 
         let excluded_files_editor = cx.new(|cx| {
             let mut editor = Editor::single_line(window, cx);
             editor.set_placeholder_text("Exclude: vendor/*, *.lock", cx);
+            if !excluded_files_text.is_empty() {
+                editor.set_text(excluded_files_text.as_str(), window, cx);
+            }
 
             editor
         });
-        // Subscribe to excluded_files_editor in order to reraise editor events for workspace item activation purposes
-        subscriptions.push(
-            cx.subscribe(&excluded_files_editor, |_, _, event: &EditorEvent, cx| {
-                cx.emit(ViewEvent::EditorEvent(event.clone()))
-            }),
-        );
+        // Subscribe to excluded_files_editor to reraise editor events and persist settings when edited
+        subscriptions.push(cx.subscribe(&excluded_files_editor, |this, _, event: &EditorEvent, cx| {
+            if let EditorEvent::Edited { .. } = event {
+                ActiveSettings::update_global(cx, |settings, cx| {
+                    settings.0.insert(
+                        this.entity.read(cx).project.downgrade(),
+                        this.current_settings(cx),
+                    );
+                });
+            }
+            cx.emit(ViewEvent::EditorEvent(event.clone()))
+        }));
 
         let focus_handle = cx.focus_handle();
         subscriptions.push(cx.on_focus(&focus_handle, window, |_, window, cx| {
@@ -883,7 +928,7 @@ impl ProjectSearchView {
             excluded_files_editor,
             filters_enabled,
             replace_enabled: false,
-            included_opened_only: false,
+            included_opened_only,
             regex_language: None,
             _subscriptions: subscriptions,
             query_error: None,
@@ -1357,6 +1402,12 @@ impl ProjectSearchView {
         };
         editor.update(cx, |included_editor, cx| {
             included_editor.set_text(text, window, cx)
+        });
+        ActiveSettings::update_global(cx, |settings, cx| {
+            settings.0.insert(
+                self.entity.read(cx).project.downgrade(),
+                self.current_settings(cx),
+            );
         });
     }
 
