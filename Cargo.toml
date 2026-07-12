@@ -45,7 +45,6 @@ members = [
     "crates/crashes",
     "crates/credentials_provider",
     "crates/csv_preview",
-    "crates/dap",
     "crates/db",
     "crates/deepseek",
     "crates/dev_container",
@@ -307,7 +306,6 @@ crashes = { path = "crates/crashes" }
 credentials_provider = { path = "crates/credentials_provider" }
 crossbeam = "0.8.4"
 csv_preview = { path = "crates/csv_preview"}
-dap = { path = "crates/dap" }
 db = { path = "crates/db" }
 deepseek = { path = "crates/deepseek" }
 derive_refineable = { path = "crates/refineable/derive_refineable" }
@@ -561,7 +559,6 @@ cpal = "0.17"
 crash-handler = "0.7"
 criterion = { version = "0.5", features = ["html_reports"] }
 ctor = "1.0.6"
-dap-types = { git = "https://github.com/zed-industries/dap-types", rev = "1b461b310481d01e02b2603c16d7144b926339f8" }
 dashmap = "6.0"
 derive_more = { version = "2.1.1", features = [
     "add",

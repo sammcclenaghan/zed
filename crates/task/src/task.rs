@@ -1,11 +1,8 @@
 //! Baseline interface of Tasks in Zed: all tasks in Zed are intended to use those for implementing their own logic.
 
-mod adapter_schema;
-mod debug_format;
 mod serde_helpers;
 pub mod static_source;
 mod task_template;
-mod vscode_debug_format;
 mod vscode_format;
 
 use anyhow::Context as _;
@@ -17,18 +14,12 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-pub use adapter_schema::{AdapterSchema, AdapterSchemas};
-pub use debug_format::{
-    AttachRequest, BuildTaskDefinition, DebugRequest, DebugScenario, DebugTaskFile, LaunchRequest,
-    Request, TcpArgumentsTemplate, ZedDebugConfig,
-};
 pub use task_template::{
-    DebugArgsRequest, HideStrategy, RevealStrategy, SaveStrategy, TaskHook, TaskTemplate,
-    TaskTemplates, substitute_variables_in_map, substitute_variables_in_str,
+    HideStrategy, RevealStrategy, SaveStrategy, TaskHook, TaskTemplate, TaskTemplates,
+    substitute_variables_in_map, substitute_variables_in_str,
 };
 pub use util::shell::{Shell, ShellKind};
 pub use util::shell_builder::ShellBuilder;
-pub use vscode_debug_format::VsCodeDebugTaskFile;
 pub use vscode_format::VsCodeTaskFile;
 pub use zed_actions::RevealTarget;
 
@@ -178,9 +169,6 @@ pub enum VariableName {
     Language,
     /// The symbol selected by the symbol tagging system, specifically the @run capture in a runnables.scm
     RunnableSymbol,
-    /// Open a Picker to select a process ID to use in place
-    /// Can only be used to debug configurations
-    PickProcessId,
     /// An absolute path of the main (original) git worktree for the current repository.
     /// For normal checkouts, this equals the worktree root. For linked worktrees,
     /// this is the original repo's working directory.
@@ -270,7 +258,6 @@ impl std::fmt::Display for VariableName {
             Self::SelectedText => write!(f, "{ZED_VARIABLE_NAME_PREFIX}SELECTED_TEXT"),
             Self::Language => write!(f, "{ZED_VARIABLE_NAME_PREFIX}LANGUAGE"),
             Self::RunnableSymbol => write!(f, "{ZED_VARIABLE_NAME_PREFIX}RUNNABLE_SYMBOL"),
-            Self::PickProcessId => write!(f, "{ZED_VARIABLE_NAME_PREFIX}PICK_PID"),
             Self::MainGitWorktree => write!(f, "{ZED_VARIABLE_NAME_PREFIX}MAIN_GIT_WORKTREE"),
             Self::GitSha => write!(f, "{ZED_VARIABLE_NAME_PREFIX}GIT_SHA"),
             Self::GitShaShort => write!(f, "{ZED_VARIABLE_NAME_PREFIX}GIT_SHA_SHORT"),
@@ -401,44 +388,17 @@ pub fn shell_to_proto(shell: Shell) -> proto::Shell {
 }
 
 type VsCodeEnvVariable = String;
-type VsCodeCommand = String;
 type ZedEnvVariable = String;
 
 struct EnvVariableReplacer {
     variables: HashMap<VsCodeEnvVariable, ZedEnvVariable>,
-    commands: HashMap<VsCodeCommand, ZedEnvVariable>,
 }
 
 impl EnvVariableReplacer {
     fn new(variables: HashMap<VsCodeEnvVariable, ZedEnvVariable>) -> Self {
-        Self {
-            variables,
-            commands: HashMap::default(),
-        }
+        Self { variables }
     }
 
-    fn with_commands(
-        mut self,
-        commands: impl IntoIterator<Item = (VsCodeCommand, ZedEnvVariable)>,
-    ) -> Self {
-        self.commands = commands.into_iter().collect();
-        self
-    }
-
-    fn replace_value(&self, input: serde_json::Value) -> serde_json::Value {
-        match input {
-            serde_json::Value::String(s) => serde_json::Value::String(self.replace(&s)),
-            serde_json::Value::Array(arr) => {
-                serde_json::Value::Array(arr.into_iter().map(|v| self.replace_value(v)).collect())
-            }
-            serde_json::Value::Object(obj) => serde_json::Value::Object(
-                obj.into_iter()
-                    .map(|(k, v)| (self.replace(&k), self.replace_value(v)))
-                    .collect(),
-            ),
-            _ => input,
-        }
-    }
     // Replaces occurrences of VsCode-specific environment variables with Zed equivalents.
     fn replace(&self, input: &str) -> String {
         shellexpand::env_with_context_no_errors(&input, |var: &str| {
@@ -448,11 +408,6 @@ impl EnvVariableReplacer {
             if left == "env" && !right.is_empty() {
                 let variable_name = &right[1..];
                 return Some(format!("${{{variable_name}}}"));
-            } else if left == "command" && !right.is_empty() {
-                let command_name = &right[1..];
-                if let Some(replacement_command) = self.commands.get(command_name) {
-                    return Some(format!("${{{replacement_command}}}"));
-                }
             }
 
             let (variable_name, default) = (left, right);

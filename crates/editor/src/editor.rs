@@ -10308,13 +10308,6 @@ impl SemanticsProvider for WeakEntity<Project> {
 
     fn supports_inlay_hints(&self, buffer: &Entity<Buffer>, cx: &mut App) -> bool {
         self.update(cx, |project, cx| {
-            if project
-                .active_debug_session(cx)
-                .is_some_and(|(session, _)| session.read(cx).any_stopped_thread())
-            {
-                return true;
-            }
-
             buffer.update(cx, |buffer, cx| {
                 project.any_language_server_supports_inlay_hints(buffer, cx)
             })

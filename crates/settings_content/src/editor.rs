@@ -489,10 +489,6 @@ pub struct GutterContent {
     ///
     /// Default: true
     pub runnables: Option<bool>,
-    /// Whether to show breakpoints in the gutter.
-    ///
-    /// Default: true
-    pub breakpoints: Option<bool>,
     /// Whether to show bookmarks in the gutter.
     ///
     /// Default: true

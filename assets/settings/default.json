@@ -659,8 +659,6 @@
     "runnables": true,
     // Whether to show bookmarks in the gutter.
     "bookmarks": true,
-    // Whether to show breakpoints in the gutter.
-    "breakpoints": true,
     // Whether to show fold buttons in the gutter.
     "folds": true,
     // Minimum number of characters to reserve space for in the gutter.
@@ -1515,8 +1513,6 @@
   //
   // A value of 0 disables modelines support.
   "modeline_lines": 5,
-  // What debuggers are preferred by default for all languages.
-  "debuggers": [],
   // Whether to enable word diff highlighting in the editor.
   //
   // When enabled, changed words within modified lines are highlighted
@@ -2088,7 +2084,7 @@
     "JSONC": [
       "**/.zed/*.json",
       "**/.vscode/**/*.json",
-      "**/{zed,Zed}/{settings,keymap,tasks,debug}.json",
+      "**/{zed,Zed}/{settings,keymap,tasks}.json",
       "tsconfig*.json",
     ],
     "Markdown": [".rules", ".cursorrules", ".windsurfrules", ".clinerules"],
@@ -2246,7 +2242,6 @@
       "code_actions_on_format": {
         "source.organizeImports": true,
       },
-      "debuggers": ["Delve"],
     },
     "GraphQL": {
       "format_on_save": "on",
@@ -2342,7 +2337,6 @@
           "name": "ruff",
         },
       },
-      "debuggers": ["Debugpy"],
       "language_servers": ["basedpyright", "ruff", "!ty", "!pyrefly", "!pyright", "!pylsp", "..."],
     },
     "Ruby": {
@@ -2359,7 +2353,6 @@
     },
     "Rust": {
       "format_on_save": "on",
-      "debuggers": ["CodeLLDB"],
     },
     "SCSS": {
       "prettier": {
@@ -2516,15 +2509,6 @@
     //         }
     //     }
     // }
-  },
-  // DAP Specific settings.
-  "dap": {
-    // Specify the DAP name as a key here.
-    "CodeLLDB": {
-      "env": {
-        "RUST_LOG": "info",
-      },
-    },
   },
   // Common language server settings.
   "global_lsp_settings": {
@@ -2717,15 +2701,6 @@
   "context_servers": {},
   // Configures agent servers available in the agent panel.
   "agent_servers": {},
-  "debugger": {
-    "stepping_granularity": "line",
-    "save_breakpoints": true,
-    "timeout": 2000,
-    "dock": "bottom",
-    "log_dap_communications": true,
-    "format_dap_log_messages": true,
-    "button": true,
-  },
   // Configures any number of settings profiles that are temporarily applied
   // when selected from `settings profile selector: toggle`.
   //

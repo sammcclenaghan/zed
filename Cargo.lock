@@ -4636,51 +4636,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "dap"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-compression",
- "async-pipe",
- "async-tar",
- "async-trait",
- "client",
- "collections",
- "dap-types",
- "fs",
- "futures 0.3.32",
- "gpui",
- "http_client",
- "language",
- "libc",
- "log",
- "node_runtime",
- "parking_lot",
- "paths",
- "proto",
- "schemars 1.0.4",
- "serde",
- "serde_json",
- "settings",
- "smallvec",
- "smol",
- "task",
- "telemetry",
- "util",
- "zlog",
-]
-
-[[package]]
-name = "dap-types"
-version = "0.0.1"
-source = "git+https://github.com/zed-industries/dap-types?rev=1b461b310481d01e02b2603c16d7144b926339f8#1b461b310481d01e02b2603c16d7144b926339f8"
-dependencies = [
- "schemars 1.0.4",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "darling"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13757,7 +13712,6 @@ dependencies = [
  "collections",
  "context_server",
  "credentials_provider",
- "dap",
  "encoding_rs",
  "extension",
  "fancy-regex 0.18.0",
