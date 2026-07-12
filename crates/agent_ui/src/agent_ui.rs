@@ -4,6 +4,7 @@ mod agent_diff;
 mod agent_model_selector;
 mod agent_panel;
 mod agent_registry_ui;
+mod agent_thread_item;
 mod buffer_codegen;
 mod completion_provider;
 mod config_options;
@@ -75,6 +76,9 @@ pub use crate::agent_panel::{
     ThreadTitleRegenerationResult,
 };
 use crate::agent_registry_ui::AgentRegistryPage;
+pub use crate::agent_thread_item::{
+    AgentThreadItem, open_agent_thread_in_workspace, open_new_agent_thread_in_workspace,
+};
 pub use crate::inline_assistant::InlineAssistant;
 pub use crate::message_editor::MessageEditorEvent;
 pub use crate::thread_metadata_store::ThreadId;
@@ -191,6 +195,7 @@ pub enum AgentThreadSource {
     AgentPanel,
     GitPanel,
     Sidebar,
+    Tab,
 }
 
 impl AgentThreadSource {
@@ -199,6 +204,7 @@ impl AgentThreadSource {
             Self::AgentPanel => "agent_panel",
             Self::GitPanel => "git_panel",
             Self::Sidebar => "sidebar",
+            Self::Tab => "tab",
         }
     }
 }
@@ -614,6 +620,7 @@ pub fn init(
         init_language_model_settings(cx);
     }
     agent_panel::init(cx);
+    workspace::register_serializable_item::<AgentThreadItem>(cx);
     context_server_configuration::init(language_registry, fs.clone(), cx);
     thread_metadata_store::init(cx);
     terminal_thread_metadata_store::init(cx);

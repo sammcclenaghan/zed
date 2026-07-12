@@ -374,10 +374,18 @@ pub fn init(cx: &mut App) {
             workspace
                 .register_action(|workspace, _: &NewThread, window, cx| {
                     if let Some(panel) = workspace.panel::<AgentPanel>(cx) {
-                        panel.update(cx, |panel, cx| {
-                            panel.new_thread_with_workspace(Some(workspace), window, cx)
-                        });
-                        workspace.focus_panel::<AgentPanel>(window, cx);
+                        // Terminal-style entries still live in the panel;
+                        // conversation threads open as workspace tabs.
+                        if panel.read(cx).should_create_terminal_for_new_entry(cx) {
+                            panel.update(cx, |panel, cx| {
+                                panel.new_thread_with_workspace(Some(workspace), window, cx)
+                            });
+                            workspace.focus_panel::<AgentPanel>(window, cx);
+                        } else {
+                            crate::agent_thread_item::open_new_agent_thread_in_workspace(
+                                workspace, window, cx,
+                            );
+                        }
                     }
                 })
                 .register_action(|workspace, _: &NewTerminalThread, window, cx| {
@@ -2919,7 +2927,7 @@ impl AgentPanel {
             .and_then(|workspace| terminal_view::default_working_directory(workspace.read(cx), cx))
     }
 
-    fn has_open_project(&self, cx: &App) -> bool {
+    pub(crate) fn has_open_project(&self, cx: &App) -> bool {
         self.project.read(cx).visible_worktrees(cx).next().is_some()
     }
 
@@ -4382,6 +4390,16 @@ impl AgentPanel {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // Threads activated from the history list open as workspace tabs.
+        // Background activations (focus == false, e.g. panel restore on
+        // startup) keep the panel as their home so tab restoration — which
+        // goes through the workspace item database — stays the single owner
+        // of recreating tabs.
+        if focus && source == AgentThreadSource::Sidebar {
+            self.open_thread_in_tab(agent, thread_id, work_dirs, title, source, window, cx);
+            return;
+        }
+
         if let Some(store) = ThreadMetadataStore::try_global(cx) {
             store.update(cx, |store, cx| {
                 store.unarchive(thread_id, cx);
@@ -4449,6 +4467,128 @@ impl AgentPanel {
             window,
             cx,
         );
+    }
+
+    /// Routes a thread activation to a workspace tab. Deferred because
+    /// callers may be inside a `Workspace` update (e.g. workspace-level
+    /// action handlers), which `open_agent_thread_in_workspace` needs to
+    /// re-enter.
+    fn open_thread_in_tab(
+        &mut self,
+        agent: Agent,
+        thread_id: ThreadId,
+        work_dirs: Option<PathList>,
+        title: Option<SharedString>,
+        source: AgentThreadSource,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let workspace = self.workspace.clone();
+        window.defer(cx, move |window, cx| {
+            workspace
+                .update(cx, |workspace, cx| {
+                    crate::agent_thread_item::open_agent_thread_in_workspace(
+                        workspace, agent, thread_id, work_dirs, title, source, window, cx,
+                    );
+                })
+                .log_err();
+        });
+    }
+
+    /// Returns a [`ConversationView`] for displaying `thread_id` in a
+    /// workspace tab, reusing an in-memory view when the panel already holds
+    /// one (as the active view, the draft slot, or a retained thread) so the
+    /// same thread is never rendered by two live views at once.
+    pub(crate) fn thread_view_for_tab(
+        &mut self,
+        agent: Agent,
+        thread_id: ThreadId,
+        work_dirs: Option<PathList>,
+        title: Option<SharedString>,
+        source: AgentThreadSource,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<ConversationView> {
+        if let Some(store) = ThreadMetadataStore::try_global(cx) {
+            store.update(cx, |store, cx| {
+                store.unarchive(thread_id, cx);
+            });
+        }
+
+        if let BaseView::AgentThread { conversation_view } = &self.base_view
+            && conversation_view.read(cx).thread_id == thread_id
+        {
+            let conversation_view = conversation_view.clone();
+            if self
+                .draft_thread
+                .as_ref()
+                .is_some_and(|draft| draft.entity_id() == conversation_view.entity_id())
+            {
+                self.draft_thread = None;
+                self._draft_editor_observation = None;
+            }
+            self.base_view = BaseView::Uninitialized;
+            self.refresh_base_view_subscriptions(window, cx);
+            cx.emit(AgentPanelEvent::ActiveViewChanged);
+            cx.notify();
+            return conversation_view;
+        }
+
+        if let Some(draft) = self.draft_thread.clone()
+            && draft.read(cx).thread_id == thread_id
+        {
+            self.draft_thread = None;
+            self._draft_editor_observation = None;
+            return draft;
+        }
+
+        if let Some(conversation_view) = self.retained_threads.remove(&thread_id) {
+            cx.notify();
+            return conversation_view;
+        }
+
+        let is_draft = ThreadMetadataStore::try_global(cx)
+            .and_then(|store| store.read(cx).entry(thread_id).map(|m| m.is_draft()))
+            .unwrap_or(false);
+        let initial_content = is_draft
+            .then(|| crate::draft_prompt_store::read(thread_id, cx))
+            .flatten()
+            .map(|blocks| AgentInitialContent::ContentBlock {
+                blocks,
+                auto_submit: false,
+            });
+
+        self.create_agent_thread_with_server(
+            agent,
+            None,
+            Some(thread_id),
+            work_dirs,
+            title,
+            initial_content,
+            None,
+            source,
+            window,
+            cx,
+        )
+        .conversation_view
+    }
+
+    /// Takes ownership of a conversation view whose workspace tab was
+    /// closed, keeping running generations alive in the retained set.
+    pub(crate) fn retain_thread(
+        &mut self,
+        conversation_view: Entity<ConversationView>,
+        cx: &mut Context<Self>,
+    ) {
+        self.retain_running_thread(BaseView::AgentThread { conversation_view }, cx);
+        cx.notify();
+    }
+
+    /// Records that the user created a new thread (in a workspace tab), so
+    /// the panel's thread-vs-terminal default for the next new entry stays
+    /// in sync.
+    pub(crate) fn record_new_thread_tab_created(&mut self, cx: &mut Context<Self>) {
+        self.set_last_created_entry_kind_from_user_action(AgentPanelEntryKind::Thread, cx);
     }
 
     pub(crate) fn create_agent_thread_with_server(
@@ -11700,40 +11840,37 @@ mod tests {
             editor.set_text("Don't lose me!", window, cx);
         });
 
-        // Press cmd-n on a typed draft — the draft is parked into
-        // `retained_threads` so the user can return to it from the
-        // sidebar, and a fresh, *empty* ephemeral draft becomes active.
-        // The parked draft retains the prompt; the new one is a blank
-        // slate.
+        // Press cmd-n on a typed draft — the new thread opens as a
+        // workspace tab, leaving the typed panel draft untouched.
         cx.dispatch_action(NewThread);
         cx.run_until_parked();
 
-        panel.read_with(cx, |panel, _cx| {
-            assert!(
-                panel.retained_threads.contains_key(&initial_thread_id),
-                "typed draft should have been parked into retained_threads"
-            );
-            let active_draft_id = panel.draft_thread.as_ref().unwrap().entity_id();
+        workspace.read_with(cx, |workspace, cx| {
+            let items = workspace
+                .items_of_type::<crate::AgentThreadItem>(cx)
+                .collect::<Vec<_>>();
+            assert_eq!(items.len(), 1, "cmd-n should open a new thread tab");
             assert_ne!(
-                active_draft_id, initial_draft_id,
-                "cmd-n should produce a fresh ephemeral draft"
+                items[0].read(cx).thread_id(cx),
+                initial_thread_id,
+                "the tab should host a fresh thread, not the panel draft"
             );
         });
 
-        // The parked draft still holds the typed prompt.
-        let parked_text = panel.read_with(cx, |panel, cx| panel.editor_text(initial_thread_id, cx));
-        assert_eq!(
-            parked_text.as_deref(),
-            Some("Don't lose me!"),
-            "parked draft should retain the typed prompt"
-        );
+        panel.read_with(cx, |panel, _cx| {
+            let active_draft_id = panel.draft_thread.as_ref().unwrap().entity_id();
+            assert_eq!(
+                active_draft_id, initial_draft_id,
+                "the panel draft should remain in place after cmd-n"
+            );
+        });
 
-        // The new active draft starts empty — no carry-over.
-        let active_thread_id = panel.read_with(cx, |panel, cx| panel.active_thread_id(cx).unwrap());
-        let active_text = panel.read_with(cx, |panel, cx| panel.editor_text(active_thread_id, cx));
+        // The draft still holds the typed prompt.
+        let draft_text = panel.read_with(cx, |panel, cx| panel.editor_text(initial_thread_id, cx));
         assert_eq!(
-            active_text, None,
-            "fresh ephemeral draft should start empty, not carry the parked draft's prompt"
+            draft_text.as_deref(),
+            Some("Don't lose me!"),
+            "draft should retain the typed prompt"
         );
     }
 
@@ -11792,7 +11929,8 @@ mod tests {
             "sanity: parking should have produced a fresh ephemeral draft"
         );
 
-        // Activate the parked draft (simulates clicking it in the sidebar).
+        // Activate the parked draft via a panel-internal activation.
+        // (Sidebar-sourced activations now open workspace tabs instead.)
         panel.update_in(cx, |panel, window, cx| {
             panel.load_agent_thread(
                 Agent::Stub,
@@ -11800,7 +11938,7 @@ mod tests {
                 None,
                 None,
                 true,
-                AgentThreadSource::Sidebar,
+                AgentThreadSource::AgentPanel,
                 window,
                 cx,
             );
@@ -11902,7 +12040,9 @@ mod tests {
             );
         });
 
-        // Navigate back to the parked draft (simulates sidebar click).
+        // Navigate back to the parked draft via a panel-internal
+        // activation. (Sidebar-sourced activations now open workspace
+        // tabs instead.)
         panel.update_in(cx, |panel, window, cx| {
             panel.load_agent_thread(
                 Agent::Stub,
@@ -11910,7 +12050,7 @@ mod tests {
                 None,
                 None,
                 true,
-                AgentThreadSource::Sidebar,
+                AgentThreadSource::AgentPanel,
                 window,
                 cx,
             );
