@@ -167,7 +167,7 @@ impl EditorElement {
             cx.notify();
         }
 
-        // Don't show breakpoint indicator when diff review indicator is active on this row
+        // Don't show the gutter hover button when diff review indicator is active on this row
         let is_on_diff_review_button_row = diff_review_indicator.is_some_and(|indicator| {
             let start_row = indicator
                 .start

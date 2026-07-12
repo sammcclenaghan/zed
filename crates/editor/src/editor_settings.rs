@@ -136,7 +136,6 @@ pub struct Gutter {
     pub min_line_number_digits: usize,
     pub line_numbers: bool,
     pub runnables: bool,
-    pub breakpoints: bool,
     pub bookmarks: bool,
     pub folds: bool,
 }
@@ -254,7 +253,6 @@ impl Settings for EditorSettings {
                 line_numbers: gutter.line_numbers.unwrap(),
                 runnables: gutter.runnables.unwrap(),
                 bookmarks: gutter.bookmarks.unwrap(),
-                breakpoints: gutter.breakpoints.unwrap(),
                 folds: gutter.folds.unwrap(),
             },
             scroll_beyond_last_line: editor.scroll_beyond_last_line.unwrap(),

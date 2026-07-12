@@ -63,7 +63,6 @@ use multi_buffer::{
 };
 
 use project::{
-    debugger::breakpoint_store::{Breakpoint, BreakpointSessionState},
     project_settings::ProjectSettings,
 };
 use settings::{
@@ -100,12 +99,9 @@ use workspace::{
 #[derive(Clone, Copy, Default)]
 struct LineHighlightSpec {
     selection: bool,
-    breakpoint: bool,
-    _active_stack_frame: bool,
 }
 
 enum LineNumberStyle {
-    Breakpoint,
     DiffAdded,
     DiffDeleted,
     Active,
@@ -113,23 +109,17 @@ enum LineNumberStyle {
 }
 
 impl LineNumberStyle {
-    fn new(is_active: bool, is_breakpoint: bool, diff_status: Option<DiffHunkStatus>) -> Self {
-        match (
-            is_active,
-            is_breakpoint,
-            diff_status.map(|status| status.kind),
-        ) {
-            (_, true, _) => Self::Breakpoint,
-            (true, _, _) => Self::Active,
-            (_, _, Some(DiffHunkStatusKind::Added)) => Self::DiffAdded,
-            (_, _, Some(DiffHunkStatusKind::Deleted)) => Self::DiffDeleted,
-            (_, _, _) => Self::Inactive,
+    fn new(is_active: bool, diff_status: Option<DiffHunkStatus>) -> Self {
+        match (is_active, diff_status.map(|status| status.kind)) {
+            (true, _) => Self::Active,
+            (_, Some(DiffHunkStatusKind::Added)) => Self::DiffAdded,
+            (_, Some(DiffHunkStatusKind::Deleted)) => Self::DiffDeleted,
+            (_, _) => Self::Inactive,
         }
     }
 
     fn color(self, colors: &theme::ThemeColors) -> Hsla {
         match self {
-            Self::Breakpoint => colors.debugger_accent,
             Self::DiffAdded => colors.version_control_added,
             Self::DiffDeleted => colors.version_control_deleted,
             Self::Active => colors.editor_active_line_number,
@@ -466,7 +456,6 @@ impl EditorElement {
         register_action(editor, window, Editor::toggle_relative_line_numbers);
         register_action(editor, window, Editor::toggle_indent_guides);
         register_action(editor, window, Editor::toggle_inlay_hints);
-        register_action(editor, window, Editor::toggle_inline_values);
         register_action(editor, window, Editor::toggle_code_lens_action);
         register_action(editor, window, Editor::toggle_semantic_highlights);
         register_action(editor, window, Editor::toggle_edit_predictions);
@@ -545,10 +534,6 @@ impl EditorElement {
         register_action(editor, window, Editor::edit_bookmark);
         register_action(editor, window, Editor::go_to_next_bookmark);
         register_action(editor, window, Editor::go_to_previous_bookmark);
-        register_action(editor, window, Editor::toggle_breakpoint);
-        register_action(editor, window, Editor::edit_log_breakpoint);
-        register_action(editor, window, Editor::enable_breakpoint);
-        register_action(editor, window, Editor::disable_breakpoint);
         register_action(editor, window, Editor::toggle_read_only);
         register_action(editor, window, Editor::reload_file);
 
@@ -2483,36 +2468,6 @@ impl EditorElement {
         })
     }
 
-    fn layout_breakpoints(
-        &self,
-        gutter: &Gutter,
-        breakpoints: &HashMap<DisplayRow, (Anchor, Breakpoint, Option<BreakpointSessionState>)>,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> Vec<AnyElement> {
-        if self.split_side == Some(SplitSide::Left) {
-            return Vec::new();
-        }
-
-        self.editor.update(cx, |editor, cx| {
-            breakpoints
-                .iter()
-                .filter_map(|(row, (text_anchor, bp, state))| {
-                    gutter.layout_item_skipping_folds(
-                        *row,
-                        |cx, _| {
-                            editor
-                                .render_breakpoint(*text_anchor, *row, &bp, *state, cx)
-                                .into_any_element()
-                        },
-                        window,
-                        cx,
-                    )
-                })
-                .collect_vec()
-        })
-    }
-
     fn should_render_diff_review_button(
         &self,
         range: Range<DisplayRow>,
@@ -2563,7 +2518,6 @@ impl EditorElement {
         &self,
         gutter: &Gutter,
         run_indicators: &HashSet<DisplayRow>,
-        breakpoints: &HashMap<DisplayRow, (Anchor, Breakpoint, Option<BreakpointSessionState>)>,
         window: &mut Window,
         cx: &mut App,
     ) -> Vec<AnyElement> {
@@ -2601,7 +2555,6 @@ impl EditorElement {
                                 .render_run_indicator(
                                     &self.style,
                                     Some(*display_row) == active_task_indicator_row,
-                                    breakpoints.get(&display_row).map(|(anchor, _, _)| *anchor),
                                     *display_row,
                                     cx,
                                 )
@@ -2764,12 +2717,8 @@ impl EditorElement {
                 write!(&mut line_number, "{number}").unwrap();
 
                 let spec = active_rows.get(&display_row);
-                let color = LineNumberStyle::new(
-                    spec.is_some(),
-                    spec.is_some_and(|spec| spec.breakpoint),
-                    row_info.diff_status,
-                )
-                .color(cx.theme().colors());
+                let color = LineNumberStyle::new(spec.is_some(), row_info.diff_status)
+                    .color(cx.theme().colors());
 
                 let shaped_line =
                     self.shape_line_number(SharedString::from(&line_number), color, window);
@@ -5390,10 +5339,6 @@ impl EditorElement {
 
             for bookmark in layout.bookmarks.iter_mut() {
                 bookmark.paint(window, cx);
-            }
-
-            for breakpoint in layout.breakpoints.iter_mut() {
-                breakpoint.paint(window, cx);
             }
 
             for test_indicator in layout.test_indicators.iter_mut() {
@@ -8383,7 +8328,7 @@ impl Element for EditorElement {
                         })
                         .unwrap_or_else(|| (Vec::new(), Vec::new(), HashMap::default()));
 
-                    let (selections, mut active_rows, newest_selection_head) = self
+                    let (selections, active_rows, newest_selection_head) = self
                         .layout_selections(
                             start_anchor,
                             end_anchor,
@@ -8420,16 +8365,6 @@ impl Element for EditorElement {
                     let run_indicator_rows = self.editor.update(cx, |editor, cx| {
                         editor.active_run_indicators(start_row..end_row, window, cx)
                     });
-
-                    let mut breakpoint_rows = self.editor.update(cx, |editor, cx| {
-                        editor.active_breakpoints(start_row..end_row, window, cx)
-                    });
-
-                    for (display_row, (_, bp, state)) in &breakpoint_rows {
-                        if bp.is_enabled() && state.is_none_or(|s| s.verified) {
-                            active_rows.entry(*display_row).or_default().breakpoint = true;
-                        }
-                    }
 
                     let gutter = Gutter {
                         line_height,
@@ -9042,13 +8977,7 @@ impl Element for EditorElement {
                     );
 
                     let test_indicators = if gutter_settings.runnables {
-                        self.layout_run_indicators(
-                            &gutter,
-                            &run_indicator_rows,
-                            &breakpoint_rows,
-                            window,
-                            cx,
-                        )
+                        self.layout_run_indicators(&gutter, &run_indicator_rows, window, cx)
                     } else {
                         Vec::new()
                     };
@@ -9059,23 +8988,11 @@ impl Element for EditorElement {
                     let bookmark_rows = self.editor.update(cx, |editor, cx| {
                         let mut rows = editor.active_bookmarks(start_row..end_row, window, cx);
                         rows.retain(|k| !run_indicator_rows.contains(k));
-                        rows.retain(|k| !breakpoint_rows.contains_key(k));
                         rows
                     });
 
-                    let bookmarks = if show_bookmarks {
+                    let mut bookmarks = if show_bookmarks {
                         self.layout_bookmarks(&gutter, &bookmark_rows, window, cx)
-                    } else {
-                        Vec::new()
-                    };
-
-                    let show_breakpoints = snapshot
-                        .show_breakpoints
-                        .unwrap_or(gutter_settings.breakpoints);
-
-                    breakpoint_rows.retain(|k, _| !run_indicator_rows.contains(k));
-                    let mut breakpoints = if show_breakpoints {
-                        self.layout_breakpoints(&gutter, &breakpoint_rows, window, cx)
                     } else {
                         Vec::new()
                     };
@@ -9089,14 +9006,13 @@ impl Element for EditorElement {
                         .map(|phantom| phantom.display_row);
 
                     if let Some(row) = gutter_hover_button
-                        && !breakpoint_rows.contains_key(&row)
                         && !run_indicator_rows.contains(&row)
                         && !bookmark_rows.contains(&row)
-                        && (show_bookmarks || show_breakpoints)
+                        && show_bookmarks
                     {
                         let position = snapshot
                             .display_point_to_anchor(DisplayPoint::new(row, 0), Bias::Right);
-                        breakpoints.extend(
+                        bookmarks.extend(
                             self.layout_gutter_hover_button(&gutter, position, row, window, cx),
                         );
                     }
@@ -9389,7 +9305,6 @@ impl Element for EditorElement {
                         mouse_context_menu,
                         test_indicators,
                         bookmarks,
-                        breakpoints,
                         diff_review_button,
                         crease_toggles,
                         crease_trailers,
@@ -9604,7 +9519,6 @@ pub struct EditorLayout {
     selections: Vec<(PlayerColor, Vec<SelectionLayout>)>,
     test_indicators: Vec<AnyElement>,
     bookmarks: Vec<AnyElement>,
-    breakpoints: Vec<AnyElement>,
     diff_review_button: Option<AnyElement>,
     crease_toggles: Vec<Option<AnyElement>>,
     expand_toggles: Vec<Option<(AnyElement, gpui::Point<Pixels>)>>,
