@@ -1786,10 +1786,12 @@ impl CodeActionContents {
             }
         }
         self.actions.as_ref().and_then(|actions| {
-            actions.get(index).map(|available| CodeActionsItem::CodeAction {
-                action: available.action.clone(),
-                provider: available.provider.clone(),
-            })
+            actions
+                .get(index)
+                .map(|available| CodeActionsItem::CodeAction {
+                    action: available.action.clone(),
+                    provider: available.provider.clone(),
+                })
         })
     }
 }

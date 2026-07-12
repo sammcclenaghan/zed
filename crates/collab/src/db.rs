@@ -663,12 +663,15 @@ pub struct ExtensionVersionConstraints {
 }
 
 impl LocalSettingsKind {
-    pub fn from_proto(proto_kind: proto::LocalSettingsKind) -> Self {
+    pub fn from_proto(proto_kind: proto::LocalSettingsKind) -> Result<Self> {
         match proto_kind {
-            proto::LocalSettingsKind::Settings => Self::Settings,
-            proto::LocalSettingsKind::Tasks => Self::Tasks,
-            proto::LocalSettingsKind::Editorconfig => Self::Editorconfig,
-            proto::LocalSettingsKind::Debug => Self::Debug,
+            proto::LocalSettingsKind::Settings => Ok(Self::Settings),
+            proto::LocalSettingsKind::Tasks => Ok(Self::Tasks),
+            proto::LocalSettingsKind::Editorconfig => Ok(Self::Editorconfig),
+            // Debugger support was removed; treat the legacy kind like an unknown one.
+            proto::LocalSettingsKind::Debug => {
+                Err(anyhow!("unsupported worktree settings kind: debug"))?
+            }
         }
     }
 

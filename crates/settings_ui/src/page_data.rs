@@ -2179,30 +2179,6 @@ fn editor_page() -> SettingsPage {
                 files: USER,
             }),
             SettingsPageItem::SettingItem(SettingItem {
-                title: "Show Breakpoints",
-                description: "Show breakpoints in the gutter.",
-                field: Box::new(SettingField {
-                    organization_override: None,
-                    json_path: Some("gutter.breakpoints"),
-                    pick: |settings_content| {
-                        settings_content
-                            .editor
-                            .gutter
-                            .as_ref()
-                            .and_then(|gutter| gutter.breakpoints.as_ref())
-                    },
-                    write: |settings_content, value, _| {
-                        settings_content
-                            .editor
-                            .gutter
-                            .get_or_insert_default()
-                            .breakpoints = value;
-                    },
-                }),
-                metadata: None,
-                files: USER,
-            }),
-            SettingsPageItem::SettingItem(SettingItem {
                 title: "Show Bookmarks",
                 description: "Show bookmarks in the gutter.",
                 field: Box::new(SettingField {
@@ -10150,11 +10126,7 @@ fn non_editor_language_settings_data() -> Box<[SettingsPageItem]> {
         ]
     }
 
-    concat_sections!(
-        lsp_section(),
-        lsp_completions_section(),
-        prettier_section(),
-    )
+    concat_sections!(lsp_section(), lsp_completions_section(), prettier_section(),)
 }
 
 fn edit_prediction_language_settings_section() -> [SettingsPageItem; 5] {

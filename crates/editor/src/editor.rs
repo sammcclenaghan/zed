@@ -204,9 +204,9 @@ use parking_lot::Mutex;
 use persistence::EditorDb;
 use project::{
     CodeAction, Completion, CompletionDisplayOptions, CompletionIntent, CompletionResponse,
-    CompletionSource, DisableAiSettings, DocumentHighlight, InlayId,
-    InvalidationStrategy, Location, LocationLink, LspAction, PrepareRenameResponse, Project,
-    ProjectItem, ProjectPath, ProjectTransaction,
+    CompletionSource, DisableAiSettings, DocumentHighlight, InlayId, InvalidationStrategy,
+    Location, LocationLink, LspAction, PrepareRenameResponse, Project, ProjectItem, ProjectPath,
+    ProjectTransaction,
     bookmark_store::BookmarkStore,
     git_store::GitStoreEvent,
     lsp_store::{
@@ -4002,31 +4002,34 @@ impl Editor {
     ) -> IconButton {
         let focus_handle = self.focus_handle.clone();
         let has_context_menu = self.has_mouse_context_menu();
-        IconButton::new(("add_bookmark_button", row.0 as usize), ui::IconName::Bookmark)
-            .icon_size(IconSize::XSmall)
-            .size(ui::ButtonSize::None)
-            .icon_color(Color::Info)
-            .style(ButtonStyle::Transparent)
-            .on_click(cx.listener({
-                move |editor, _: &ClickEvent, window, cx| {
-                    window.focus(&editor.focus_handle(cx), cx);
-                    editor.toggle_bookmark_at_row(row, cx);
-                }
-            }))
-            .on_right_click(cx.listener(move |editor, event: &ClickEvent, window, cx| {
-                editor.set_gutter_context_menu(row, Some(position), event.position(), window, cx);
-            }))
-            .when(!has_context_menu, |button| {
-                button.tooltip(move |_window, cx| {
-                    Tooltip::with_meta_in(
-                        "Set Bookmark",
-                        Some(&ToggleBookmark),
-                        "Right-click for more options",
-                        &focus_handle,
-                        cx,
-                    )
-                })
+        IconButton::new(
+            ("add_bookmark_button", row.0 as usize),
+            ui::IconName::Bookmark,
+        )
+        .icon_size(IconSize::XSmall)
+        .size(ui::ButtonSize::None)
+        .icon_color(Color::Info)
+        .style(ButtonStyle::Transparent)
+        .on_click(cx.listener({
+            move |editor, _: &ClickEvent, window, cx| {
+                window.focus(&editor.focus_handle(cx), cx);
+                editor.toggle_bookmark_at_row(row, cx);
+            }
+        }))
+        .on_right_click(cx.listener(move |editor, event: &ClickEvent, window, cx| {
+            editor.set_gutter_context_menu(row, Some(position), event.position(), window, cx);
+        }))
+        .when(!has_context_menu, |button| {
+            button.tooltip(move |_window, cx| {
+                Tooltip::with_meta_in(
+                    "Set Bookmark",
+                    Some(&ToggleBookmark),
+                    "Right-click for more options",
+                    &focus_handle,
+                    cx,
+                )
             })
+        })
     }
 
     fn build_tasks_context(

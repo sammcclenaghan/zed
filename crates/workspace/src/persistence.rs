@@ -4019,7 +4019,7 @@ mod tests {
                 centered_layout: false,
                 session_id: Some("test-session".to_owned()),
                 bookmarks: Default::default(),
-                    window_id: Some(*window_id),
+                window_id: Some(*window_id),
                 user_toolchains: Default::default(),
             })
             .await;

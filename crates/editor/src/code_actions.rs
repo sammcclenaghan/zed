@@ -85,10 +85,9 @@ impl Editor {
                             .zip(task_context)
                             .map(|(tasks, task_context)| ResolvedTasks {
                                 templates: tasks.resolve(&task_context).collect(),
-                                position: snapshot.buffer_snapshot().anchor_before(Point::new(
-                                    multibuffer_point.row,
-                                    tasks.column,
-                                )),
+                                position: snapshot
+                                    .buffer_snapshot()
+                                    .anchor_before(Point::new(multibuffer_point.row, tasks.column)),
                             });
                     anyhow::Ok(resolved_tasks)
                 })
@@ -381,7 +380,6 @@ impl Editor {
             .shared(),
         );
     }
-
 }
 
 pub trait CodeActionProvider {

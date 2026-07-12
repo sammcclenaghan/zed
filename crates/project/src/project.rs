@@ -6567,4 +6567,3 @@ fn proto_to_prompt(level: proto::language_server_prompt_request::Level) -> gpui:
         proto::language_server_prompt_request::Level::Critical(_) => gpui::PromptLevel::Critical,
     }
 }
-

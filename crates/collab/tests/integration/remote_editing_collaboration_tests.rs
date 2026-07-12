@@ -40,7 +40,6 @@ use std::{
     },
     time::Duration,
 };
-use task::TcpArgumentsTemplate;
 use util::{path, rel_path::rel_path};
 
 #[gpui::test(iterations = 10)]

@@ -279,7 +279,6 @@ impl CommitView {
 
             editor.rhs_editor().update(cx, |editor, cx| {
                 editor.set_show_bookmarks(false, cx);
-                editor.set_show_breakpoints(false, cx);
                 editor.set_show_diff_review_button(true, cx);
             });
 
@@ -1196,7 +1195,6 @@ impl Item for CommitView {
                     editor.set_diff_hunk_delegate(Some(Arc::new(RestoreOnlyDiffHunkDelegate)), cx);
                     editor.rhs_editor().update(cx, |editor, cx| {
                         editor.set_show_bookmarks(false, cx);
-                        editor.set_show_breakpoints(false, cx);
                         editor.set_show_diff_review_button(true, cx);
                         editor.register_addon(CommitDiffAddon {
                             file_statuses,

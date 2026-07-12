@@ -30108,7 +30108,6 @@ async fn assert_highlighted_edits(
     });
 }
 
-
 struct BookmarkTestContext {
     project: Entity<Project>,
     editor: Entity<Editor>,

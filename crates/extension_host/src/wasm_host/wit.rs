@@ -1054,4 +1054,3 @@ impl<T> ToWasmtimeResult<T> for Result<T> {
         Ok(self.map_err(|error| format!("{error:?}")))
     }
 }
-

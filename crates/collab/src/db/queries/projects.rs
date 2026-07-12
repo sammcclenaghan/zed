@@ -624,7 +624,7 @@ impl Database {
                 .with_context(|| format!("unknown worktree settings kind: {kind}"))?,
             None => proto::LocalSettingsKind::Settings,
         };
-        let kind = LocalSettingsKind::from_proto(kind);
+        let kind = LocalSettingsKind::from_proto(kind)?;
         self.project_transaction(project_id, |tx| async move {
             // Ensure the update comes from the host.
             let project = project::Entity::find_by_id(project_id)

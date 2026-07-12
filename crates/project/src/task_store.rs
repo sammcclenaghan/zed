@@ -286,7 +286,6 @@ impl TaskStore {
             inventory.update_file_based_tasks(location, raw_tasks_json)
         })
     }
-
 }
 
 fn local_task_context_for_location(

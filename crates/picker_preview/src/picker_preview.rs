@@ -86,7 +86,6 @@ impl EditorPreview {
             editor.disable_mouse_wheel_zoom();
             editor.set_show_gutter(editor_settings.gutter.line_numbers, cx); // needed for line numbers
             editor.set_show_line_numbers(editor_settings.gutter.line_numbers, cx);
-            editor.set_show_breakpoints(false, cx);
             editor.set_show_bookmarks(false, cx);
             editor.set_show_code_actions(false, cx);
             editor.set_show_runnables(false, cx);

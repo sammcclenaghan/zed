@@ -1,8 +1,8 @@
 use crate::{
     Copy, CopyAndTrim, CopyPermalinkToLine, Cut, DisplayPoint, DisplaySnapshot, Editor,
     FindAllReferences, GoToDeclaration, GoToDefinition, GoToImplementation, GoToTypeDefinition,
-    Paste, Rename, RevealInFileManager, SelectMode, SelectionEffects, SelectionExt,
-    ToDisplayPoint, ToggleCodeActions,
+    Paste, Rename, RevealInFileManager, SelectMode, SelectionEffects, SelectionExt, ToDisplayPoint,
+    ToggleCodeActions,
     actions::{Format, FormatSelections},
     selections_collection::SelectionsCollection,
 };
