@@ -71,8 +71,6 @@ actions!(
         OpenStatusPage,
         /// Opens the Zed merch store.
         GetMerch,
-        /// Opens the telemetry log.
-        OpenTelemetryLog,
         /// Opens the performance profiler.
         OpenPerformanceProfiler,
         /// Opens the onboarding view.
@@ -417,22 +415,6 @@ pub mod project_panel {
         ]
     );
 }
-pub mod feedback {
-    use gpui::actions;
-
-    actions!(
-        feedback,
-        [
-            /// Opens email client to send feedback to Zed support.
-            EmailZed,
-            /// Opens the bug report form.
-            FileBugReport,
-            /// Opens the feature request form.
-            RequestFeature
-        ]
-    );
-}
-
 pub mod theme {
     use gpui::actions;
 
@@ -784,31 +766,6 @@ actions!(
     [
         /// Opens the git integration onboarding modal.
         OpenGitIntegrationOnboarding
-    ]
-);
-
-pub mod debug_panel {
-    use gpui::actions;
-    actions!(
-        debug_panel,
-        [
-            /// Toggles the debug panel.
-            Toggle,
-            /// Toggles focus on the debug panel.
-            ToggleFocus
-        ]
-    );
-}
-
-actions!(
-    debugger,
-    [
-        /// Toggles the enabled state of a breakpoint.
-        ToggleEnableBreakpoint,
-        /// Removes a breakpoint.
-        UnsetBreakpoint,
-        /// Opens the project debug tasks configuration.
-        OpenProjectDebugTasks,
     ]
 );
 

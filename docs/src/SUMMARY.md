@@ -24,8 +24,6 @@
 - [Running & Testing](./running-testing.md)
   - [Terminal](./terminal.md)
   - [Tasks](./tasks.md)
-  - [Debugger](./debugger.md)
-  - [REPL](./repl.md)
 - [Git](./git.md)
 - [Modelines](./modelines.md)
 
@@ -89,7 +87,6 @@
 
 - [Worktree Trust](./worktree-trust.md)
 - [Privacy for Business](./business/privacy.md)
-- [Telemetry](./telemetry.md)
 - [SOC2](./soc2.md)
 
 # Platform Support
@@ -193,7 +190,6 @@
 - [Developing Extensions](./extensions/developing-extensions.md)
 - [Extension Capabilities](./extensions/capabilities.md)
 - [Language Extensions](./extensions/languages.md)
-- [Debugger Extensions](./extensions/debugger-extensions.md)
 - [Theme Extensions](./extensions/themes.md)
 - [Icon Theme Extensions](./extensions/icon-themes.md)
 - [Snippets Extensions](./extensions/snippets.md)

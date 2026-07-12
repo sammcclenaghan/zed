@@ -191,28 +191,6 @@ fn remote_sync_keeps_remote_loadable_extensions_without_language_dependency() {
     assert_eq!(remote_sync_extension_ids(&index), ["foo"]);
 }
 
-#[test]
-fn remote_sync_keeps_debug_adapters() {
-    let index = ExtensionIndex {
-        extensions: [(
-            "foo".into(),
-            remote_sync_entry(
-                "foo",
-                r#"
-                [debug_adapters.foo]
-                "#,
-            ),
-        )]
-        .into_iter()
-        .collect(),
-        languages: BTreeMap::default(),
-        themes: BTreeMap::default(),
-        icon_themes: BTreeMap::default(),
-    };
-
-    assert_eq!(remote_sync_extension_ids(&index), ["foo"]);
-}
-
 #[gpui::test]
 async fn test_extension_store(cx: &mut TestAppContext) {
     init_test(cx);
